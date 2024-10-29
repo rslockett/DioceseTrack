@@ -20,9 +20,11 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
-  MapPin
+  MapPin,
+  Edit
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { AddClergyForm } from './components/AddClergyForm';
 
 const MapLink = ({ address }) => {
   const [mapUrl, setMapUrl] = useState('');
@@ -50,7 +52,7 @@ const MapLink = ({ address }) => {
   );
 };
 
-const ClergyCard = ({ clergy }) => {
+const ClergyCard = ({ clergy, onEdit }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getSpouseTitle = (role) => {
@@ -80,13 +82,12 @@ const ClergyCard = ({ clergy }) => {
                 <p className="text-sm text-gray-600">{clergy.role}</p>
                 <p className="text-sm text-gray-500">Ordained {clergy.ordained}</p>
               </div>
-              <span className={`px-2 py-1 rounded-full text-xs ${
-                clergy.status === 'Active' 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-gray-100 text-gray-800'
-              }`}>
-                {clergy.status}
-              </span>
+              <button
+                onClick={() => onEdit(clergy)}
+                className="p-2 text-gray-600 hover:text-blue-600"
+              >
+                <Edit className="h-4 w-4" />
+              </button>
             </div>
             
             <div className="mt-4 space-y-2">
@@ -113,6 +114,21 @@ const ClergyCard = ({ clergy }) => {
                 <Calendar className="h-4 w-4 mr-2" />
                 <span>Name Day: {clergy.nameDay}</span>
               </div>
+              {clergy.birthday && (
+                <div className="flex items-center text-sm text-gray-600">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <span>Birthday: {clergy.birthday}</span>
+                </div>
+              )}
+              {clergy.patronSaintDay && (
+                <div className="flex items-center text-sm text-gray-600">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <span>Patron Saint Day: {clergy.patronSaintDay}</span>
+                  {clergy.patronSaint && (
+                    <span className="ml-1 text-blue-600">({clergy.patronSaint})</span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="mt-4">
@@ -174,59 +190,48 @@ const ClergyCard = ({ clergy }) => {
 };
 
 const ClergyDirectory = () => {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingClergy, setEditingClergy] = useState(null);
+  const [clergyList, setClergyList] = useState(mockClergy);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const mockClergy = [
-    {
-      name: 'Fr. John Smith',
-      role: 'Priest',
-      ordained: '2010',
-      status: 'Active',
-      currentAssignment: "St. Mary's Cathedral",
-      address: "123 Main St, New York, NY 10001",
-      email: 'john.smith@diocese.org',
-      phone: '(555) 123-4567',
-      initials: 'JS',
-      nameDay: 'June 24',
-      spouse: {
-        name: 'Kh. Sarah Smith',
-        email: 'sarah.smith@diocese.org',
-        nameDay: 'January 12'
-      },
-      children: [
-        { name: 'James Smith', birthday: 'March 15, 2012' },
-        { name: 'Anna Smith', birthday: 'July 23, 2014' }
-      ]
-    },
-    {
-      name: 'Dcn. Michael Johnson',
-      role: 'Deacon',
-      ordained: '2015',
-      status: 'Active',
-      currentAssignment: "St. Nicholas Orthodox Church",
-      address: "456 Church Ave, Brooklyn, NY 11215",
-      email: 'michael.johnson@diocese.org',
-      phone: '(555) 234-5678',
-      initials: 'MJ',
-      nameDay: 'November 8',
-      spouse: {
-        name: 'Sh. Rachel Johnson',
-        email: 'rachel.johnson@diocese.org',
-        nameDay: 'August 5'
-      },
-      children: [
-        { name: 'Peter Johnson', birthday: 'April 10, 2016' },
-        { name: 'Maria Johnson', birthday: 'September 2, 2018' }
-      ]
+  // Handle edit clergy
+  const handleEdit = (clergy) => {
+    setEditingClergy(clergy);
+    setShowAddForm(true);
+  };
+
+  // Handle close form
+  const handleCloseForm = () => {
+    setShowAddForm(false);
+    setEditingClergy(null);
+  };
+
+  // Handle save clergy
+  const handleSaveClergy = (formData) => {
+    if (editingClergy) {
+      setClergyList(prevList => 
+        prevList.map(c => c.id === editingClergy.id ? { ...formData, id: c.id } : c)
+      );
+    } else {
+      setClergyList(prevList => [...prevList, { ...formData, id: crypto.randomUUID() }]);
     }
-  ];
+    handleCloseForm();
+  };
+
+  const filteredClergy = clergyList.filter(clergy => 
+    clergy.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold">Clergy Directory</h1>
         <div className="flex gap-4">
-          <button className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <button 
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
             <Plus className="h-5 w-5 mr-2" />
             Add New Clergy
           </button>
@@ -237,6 +242,7 @@ const ClergyDirectory = () => {
         </div>
       </div>
 
+      {/* Search Bar */}
       <div className="mb-6">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
@@ -250,13 +256,110 @@ const ClergyDirectory = () => {
         </div>
       </div>
 
+      {/* Clergy Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {mockClergy.map((clergy, index) => (
-          <ClergyCard key={index} clergy={clergy} />
+        {filteredClergy.map((clergy) => (
+          <ClergyCard 
+            key={clergy.id}
+            clergy={clergy}
+            onEdit={handleEdit}
+          />
         ))}
       </div>
+
+      {/* Add/Edit Form Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <AddClergyForm
+              initialData={editingClergy}
+              onClose={handleCloseForm}
+              onSave={handleSaveClergy}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default ClergyDirectory;
+
+const mockClergy = [
+  {
+    id: '1',
+    name: 'Fr. John Smith',
+    role: 'Priest',
+    ordained: '2010',
+    status: 'Active',
+    currentAssignment: "St. Mary's Cathedral",
+    address: "123 Main St, New York, NY 10001",
+    email: 'john.smith@diocese.org',
+    phone: '(555) 123-4567',
+    initials: 'JS',
+    nameDay: 'June 24',
+    birthday: 'March 15, 1975',
+    patronSaint: 'St. John the Baptist',
+    patronSaintDay: 'June 24',
+    spouse: {
+      name: 'Kh. Sarah Smith',
+      email: 'sarah.smith@diocese.org',
+      nameDay: 'January 12',
+      birthday: 'April 20, 1977',
+      patronSaint: 'St. Sarah',
+      patronSaintDay: 'January 12'
+    },
+    children: [
+      { 
+        name: 'James Smith', 
+        birthday: 'March 15, 2012',
+        patronSaint: 'St. James',
+        patronSaintDay: 'October 23'
+      },
+      { 
+        name: 'Anna Smith', 
+        birthday: 'July 23, 2014',
+        patronSaint: 'St. Anna',
+        patronSaintDay: 'July 25'
+      }
+    ]
+  },
+  {
+    id: '2',
+    name: 'Dcn. Michael Johnson',
+    role: 'Deacon',
+    ordained: '2015',
+    status: 'Active',
+    currentAssignment: "St. Nicholas Orthodox Church",
+    address: "456 Church Ave, Brooklyn, NY 11215",
+    email: 'michael.johnson@diocese.org',
+    phone: '(555) 234-5678',
+    initials: 'MJ',
+    nameDay: 'November 8',
+    birthday: 'September 29, 1980',
+    patronSaint: 'St. Michael the Archangel',
+    patronSaintDay: 'November 8',
+    spouse: {
+      name: 'Sh. Rachel Johnson',
+      email: 'rachel.johnson@diocese.org',
+      nameDay: 'August 5',
+      birthday: 'May 15, 1982',
+      patronSaint: 'St. Rachel',
+      patronSaintDay: 'August 5'
+    },
+    children: [
+      { 
+        name: 'Peter Johnson', 
+        birthday: 'April 10, 2016',
+        patronSaint: 'St. Peter',
+        patronSaintDay: 'June 29'
+      },
+      { 
+        name: 'Maria Johnson', 
+        birthday: 'September 2, 2018',
+        patronSaint: 'St. Mary',
+        patronSaintDay: 'August 15'
+      }
+    ]
+  }
+];
