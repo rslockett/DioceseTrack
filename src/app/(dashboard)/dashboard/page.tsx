@@ -14,10 +14,11 @@ import {
   CheckCircle,
   Building2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Cake
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { getStoredEvents } from '@/lib/utils';
+import { getCalendarEvents } from '@/lib/calendarStorage';
 import { formatDistanceToNow, format } from 'date-fns';
 import { Button } from "@/components/ui/button";
 
@@ -58,6 +59,104 @@ interface Clergy {
   // ... other clergy properties
 }
 
+interface NotificationsPopupProps {
+  notifications: ProcessedNotification[];
+  onClose: () => void;
+  onClearNotification: (id: string) => void;
+  isMinimized: boolean;
+  setIsMinimized: (value: boolean) => void;
+}
+
+const NotificationsPopup = ({ 
+  notifications, 
+  onClose, 
+  onClearNotification,
+  isMinimized,
+  setIsMinimized 
+}: NotificationsPopupProps) => {
+  return (
+    <div
+      className={`fixed bottom-4 right-4 bg-white rounded-lg shadow-lg border border-gray-200 transition-all duration-300 ease-in-out ${
+        isMinimized ? 'w-auto' : 'w-96'
+      }`}
+    >
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-gray-600" />
+            <h3 className="font-semibold text-gray-900">
+              Alerts & Reminders ({notifications.length})
+            </h3>
+          </div>
+          <button
+            onClick={() => setIsMinimized(!isMinimized)}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            {isMinimized ? (
+              <ChevronUp className="h-5 w-5" />
+            ) : (
+              <ChevronDown className="h-5 w-5" />
+            )}
+          </button>
+        </div>
+      </div>
+      
+      {!isMinimized && (
+        <>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <div className="p-4 space-y-3">
+              {notifications.map(notification => (
+                <div
+                  key={notification.id}
+                  className={`p-3 rounded-lg transition-colors ${
+                    notification.type === 'alert'
+                      ? 'bg-red-50 border border-red-100'
+                      : 'bg-amber-50 border border-amber-100'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5">
+                        {notification.type === 'alert' 
+                          ? <AlertTriangle className="h-4 w-4 text-red-600" />
+                          : <Bell className="h-4 w-4 text-amber-600" />
+                        }
+                      </span>
+                      <div>
+                        <p className="font-medium text-sm">
+                          {notification.eventTitle}
+                        </p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {formatDistanceToNow(notification.time, { addSuffix: true })}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Event {formatDistanceToNow(notification.eventStart, { addSuffix: true })}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => onClearNotification(notification.id)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {notifications.length === 0 && (
+            <div className="p-4 text-center text-gray-500 text-sm">
+              No notifications
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 const StatCard = ({ title, value, subtitle, icon: Icon, trend }) => (
   <Card>
     <CardContent className="p-4">
@@ -95,6 +194,8 @@ const Dashboard = () => {
   const [showNotifications, setShowNotifications] = useState(true)
   const [isMinimized, setIsMinimized] = useState(false)
   const [clergyList, setClergyList] = useState<Clergy[]>([]);
+  const [upcomingPatronSaintDays, setUpcomingPatronSaintDays] = useState([]);
+  const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
 
   // Load cleared notifications from localStorage on client-side only
   useEffect(() => {
@@ -105,7 +206,8 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    const storedEvents = getStoredEvents();
+    const storedEvents = getCalendarEvents();
+    console.log('Loaded calendar events:', storedEvents);
     setEvents(storedEvents);
   }, []);
 
@@ -160,6 +262,19 @@ const Dashboard = () => {
   const handleClearNotification = (notificationId: string) => {
     const newClearedNotifications = [...clearedNotifications, notificationId];
     setClearedNotifications(newClearedNotifications);
+    
+    // Update the event reminder status in calendar storage
+    const events = getCalendarEvents();
+    const updatedEvents = events.map(event => ({
+      ...event,
+      reminders: event.reminders?.map(reminder => 
+        reminder.id === notificationId 
+          ? { ...reminder, status: 'dismissed' }
+          : reminder
+      )
+    }));
+    
+    localStorage.setItem('calendarEvents', JSON.stringify(updatedEvents));
     localStorage.setItem('clearedNotifications', JSON.stringify(newClearedNotifications));
   };
 
@@ -251,129 +366,118 @@ const Dashboard = () => {
     }
   }, []);
 
-  // Function to get upcoming dates
-  const getUpcomingDates = (dateList: Date[], daysAhead: number = 30) => {
+  // Helper function to normalize dates to this year for comparison
+  const normalizeDate = (date: Date) => {
+    const today = new Date();
+    const normalized = new Date(date);
+    normalized.setFullYear(today.getFullYear());
+    
+    // If the date has already passed this year, set it to next year
+    if (normalized < today) {
+      normalized.setFullYear(today.getFullYear() + 1);
+    }
+    
+    return normalized;
+  };
+
+  // Helper function to check if a date is within the next N days
+  const isUpcoming = (date: Date, daysAhead: number = 30) => {
     const today = new Date();
     const futureDate = new Date();
     futureDate.setDate(today.getDate() + daysAhead);
     
-    return dateList
-      .filter(date => {
-        const thisYear = new Date(date);
-        thisYear.setFullYear(today.getFullYear());
-        if (thisYear < today) {
-          thisYear.setFullYear(today.getFullYear() + 1);
-        }
-        return thisYear >= today && thisYear <= futureDate;
-      })
-      .sort((a, b) => a.getTime() - b.getTime());
+    const normalizedDate = normalizeDate(date);
+    return normalizedDate >= today && normalizedDate <= futureDate;
   };
 
-  // Get upcoming birthdays and patron saint days
-  const upcomingBirthdays = clergyList
-    .filter(clergy => clergy.birthday)
-    .map(clergy => ({
-      date: new Date(clergy.birthday!),
-      name: clergy.name,
-      type: 'birthday'
-    }))
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-  const upcomingPatronSaintDays = clergyList
-    .filter(clergy => clergy.patronSaintDay)
-    .map(clergy => ({
-      date: new Date(clergy.patronSaintDay!.date),
-      name: clergy.name,
-      saint: clergy.patronSaintDay!.saint,
-      type: 'patron'
-    }))
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-  const NotificationsPopup = ({ notifications, onClose, onClearNotification }) => {
-    return (
-      <div
-        className={`fixed bottom-4 right-4 bg-white rounded-lg shadow-lg border border-gray-200 transition-all duration-300 ease-in-out ${
-          isMinimized 
-            ? 'w-auto' 
-            : 'w-96'
-        }`}
-      >
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-gray-600" />
-              <h3 className="font-semibold text-gray-900">
-                Alerts & Reminders ({notifications.length})
-              </h3>
-            </div>
-            <button
-              onClick={() => setIsMinimized(!isMinimized)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              {isMinimized ? (
-                <ChevronUp className="h-5 w-5" />
-              ) : (
-                <ChevronDown className="h-5 w-5" />
-              )}
-            </button>
-          </div>
-        </div>
+  // Update the useEffect that processes celebrations
+  useEffect(() => {
+    const clergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+    
+    // Process patron saint days
+    const patronDays = clergy
+      .filter(c => c.patronSaintDay && c.patronSaintDay.date) // Ensure both exist
+      .map(c => {
+        // Convert date string to Date object
+        const dateStr = c.patronSaintDay.date;
+        const date = new Date(dateStr);
         
-        {!isMinimized && (
-          <>
-            <div className="max-h-[60vh] overflow-y-auto">
-              <div className="p-4 space-y-3">
-                {notifications.map(notification => (
-                  <div
-                    key={notification.id}
-                    className={`p-3 rounded-lg transition-colors ${
-                      notification.type === 'alert'
-                        ? 'bg-amber-50 border border-amber-100'
-                        : 'bg-blue-50 border border-blue-100'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-3">
-                        <span className="mt-0.5">
-                          {notification.type === 'alert' 
-                            ? <AlertTriangle className="h-4 w-4 text-amber-600" />
-                            : <Bell className="h-4 w-4 text-blue-600" />
-                          }
-                        </span>
-                        <div>
-                          <p className="font-medium text-sm">
-                            {notification.eventTitle}
-                          </p>
-                          <p className="text-xs text-gray-600 mt-1">
-                            {formatDistanceToNow(notification.time, { addSuffix: true })}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            Event {formatDistanceToNow(notification.eventStart, { addSuffix: true })}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => onClearNotification(notification.id)}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {notifications.length === 0 && (
-              <div className="p-4 text-center text-gray-500 text-sm">
-                No notifications
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    )
-  }
+        return {
+          name: c.name,
+          saint: c.patronSaintDay.saint || 'Unknown Saint',
+          date: date
+        };
+      })
+      .filter(item => {
+        // Validate date and check if it's upcoming
+        const isValidDate = !isNaN(item.date.getTime());
+        if (!isValidDate) {
+          console.warn('Invalid patron saint date for:', item.name);
+          return false;
+        }
+        return isUpcoming(item.date);
+      })
+      .sort((a, b) => normalizeDate(a.date).getTime() - normalizeDate(b.date).getTime());
+
+    // Process birthdays
+    const birthdays = clergy
+      .filter(c => c.birthday) // Check if birthday exists
+      .map(c => {
+        // Convert date string to Date object
+        const date = new Date(c.birthday);
+        
+        return {
+          name: c.name,
+          date: date
+        };
+      })
+      .filter(item => {
+        // Validate date and check if it's upcoming
+        const isValidDate = !isNaN(item.date.getTime());
+        if (!isValidDate) {
+          console.warn('Invalid birthday for:', item.name);
+          return false;
+        }
+        return isUpcoming(item.date);
+      })
+      .sort((a, b) => normalizeDate(a.date).getTime() - normalizeDate(b.date).getTime());
+
+    // Debug logs
+    console.log('Processing celebrations:');
+    console.log('Raw clergy data:', clergy);
+    console.log('Processed patron days:', patronDays);
+    console.log('Processed birthdays:', birthdays);
+
+    setUpcomingPatronSaintDays(patronDays);
+    setUpcomingBirthdays(birthdays);
+  }, [clergyList]); // Add clergyList as dependency
+
+  useEffect(() => {
+    console.log('Show Notifications:', showNotifications);
+    console.log('Alerts and Reminders:', alertsAndReminders);
+  }, [showNotifications, alertsAndReminders]);
+
+  // Add this useEffect for debugging
+  useEffect(() => {
+    const events = getCalendarEvents();
+    console.log('All calendar events:', events);
+    console.log('Events with reminders:', events.filter(event => event.reminders?.length > 0));
+    console.log('Processed notifications:', alertsAndReminders);
+    console.log('Show notifications:', showNotifications);
+  }, []);
+
+  // Add this custom Cross icon component
+  const CrossIcon = ({ className = "h-4 w-4" }) => (
+    <svg 
+      className={className} 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2"
+    >
+      <path d="M8 2v3M16 2v3M12 7v15M7 12h10" strokeLinecap="round"/>
+    </svg>
+  );
 
   return (
     <div className="p-6">
@@ -455,18 +559,19 @@ const Dashboard = () => {
                 <div className="space-y-3">
                   {upcomingPatronSaintDays.length > 0 ? (
                     upcomingPatronSaintDays.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
-                      >
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-gray-600">
-                            {item.saint}
-                          </p>
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                        <div className="flex items-center gap-3">
+                          <CrossIcon className="h-4 w-4 text-blue-600" />
+                          <div>
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-sm text-gray-600">{item.saint}</p>
+                          </div>
                         </div>
                         <span className="text-sm text-blue-600">
-                          {format(new Date(item.date), 'MMM d')}
+                          {format(item.date, normalizeDate(item.date).getFullYear() > new Date().getFullYear() 
+                            ? 'MMM d, yyyy' 
+                            : 'MMM d'
+                          )}
                         </span>
                       </div>
                     ))
@@ -484,18 +589,19 @@ const Dashboard = () => {
                 <div className="space-y-3">
                   {upcomingBirthdays.length > 0 ? (
                     upcomingBirthdays.map((item, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
-                      >
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-gray-600">
-                            Birthday
-                          </p>
+                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                        <div className="flex items-center gap-3">
+                          <Cake className="h-4 w-4 text-blue-600" />
+                          <div>
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-sm text-gray-600">Birthday</p>
+                          </div>
                         </div>
                         <span className="text-sm text-blue-600">
-                          {format(new Date(item.date), 'MMM d')}
+                          {format(item.date, normalizeDate(item.date).getFullYear() > new Date().getFullYear() 
+                            ? 'MMM d, yyyy' 
+                            : 'MMM d'
+                          )}
                         </span>
                       </div>
                     ))
@@ -515,6 +621,8 @@ const Dashboard = () => {
           notifications={alertsAndReminders}
           onClose={() => setShowNotifications(false)}
           onClearNotification={handleClearNotification}
+          isMinimized={isMinimized}
+          setIsMinimized={setIsMinimized}
         />
       )}
     </div>

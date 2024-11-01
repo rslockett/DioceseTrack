@@ -1,66 +1,46 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
+import type { Clergy } from '@/types/clergy';
 import { 
-  LayoutDashboard,
-  Users2,
-  Church,
-  Map,
-  FileStack,
-  Settings,
-  LogOut,
-  Search,
-  Filter,
-  Mail,
-  Phone,
-  Building,
-  Plus,
-  Calendar,
-  Download,
-  ChevronDown,
-  ChevronUp,
-  Users,
-  MapPin,
-  Edit
+  Users2, Church, Map, FileStack, Settings, LogOut, Search,
+  Filter, Mail, Phone, Building, Plus, Calendar, Download,
+  ChevronDown, ChevronUp, Users, MapPin, Edit, Trash2
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { AddClergyForm } from './components/AddClergyForm';
+import { MapLink } from '@/components/MapLink';
 
-const MapLink = ({ address }) => {
-  const [mapUrl, setMapUrl] = useState('');
-  
-  useEffect(() => {
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const encodedAddress = encodeURIComponent(address);
-    if (isIOS) {
-      setMapUrl(`maps://maps.apple.com/?q=${encodedAddress}`);
-    } else {
-      setMapUrl(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`);
-    }
-  }, [address]);
+interface ClergyCardProps {
+  clergy: Clergy;
+  onEdit: (clergy: Clergy) => void;
+  onDelete: (id: string) => void;
+}
 
-  return (
-    <a 
-      href={mapUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center text-blue-600 hover:text-blue-700"
-    >
-      <MapPin className="h-4 w-4 mr-1" />
-      <span>View on Map</span>
-    </a>
-  );
-};
-
-const ClergyCard = ({ clergy, onEdit }) => {
+const ClergyCard = ({ clergy, onEdit, onDelete }: ClergyCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const getTitleAbbreviation = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case 'priest':
+        return 'Fr.';
+      case 'deacon':
+        return 'Dcn.';
+      case 'bishop':
+        return 'Bp.';
+      default:
+        return '';
+    }
+  };
+
   const getSpouseTitle = (role) => {
+    if (!role) return '';
+    
     switch (role.toLowerCase()) {
       case 'priest':
-        return 'Khoria';
+        return 'Kh.';
       case 'deacon':
-        return 'Shamassy';
+        return 'Sh.';
       default:
         return '';
     }
@@ -68,26 +48,70 @@ const ClergyCard = ({ clergy, onEdit }) => {
 
   const spouseTitle = getSpouseTitle(clergy.role);
 
+  const handleDeleteClick = () => {
+    if (window.confirm(`Are you sure you want to delete ${clergy.name}?`)) {
+      onDelete(clergy.id);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    
+    // Remove any duplicate T00:00:00 strings
+    const cleanDate = dateString.replace(/T00:00:00T00:00:00/, 'T00:00:00');
+    
+    try {
+      return new Date(cleanDate).toLocaleDateString();
+    } catch (e) {
+      console.error('Date parsing error:', e);
+      return dateString;
+    }
+  };
+
   return (
     <Card className="hover:shadow-lg transition-shadow">
       <CardContent className="p-6">
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-            <span className="text-blue-600 font-semibold">{clergy.initials}</span>
+          <div className="w-12 h-12 rounded-full overflow-hidden">
+            {clergy.profileImage ? (
+              <img 
+                src={clergy.profileImage} 
+                alt={clergy.name} 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-blue-100 flex items-center justify-center">
+                <span className="text-blue-600 font-semibold">{clergy.initials}</span>
+              </div>
+            )}
           </div>
           <div className="flex-1">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="font-semibold text-lg">{clergy.name}</h3>
+                <h3 className="font-semibold text-lg">
+                  {getTitleAbbreviation(clergy.type)} {clergy.name}
+                </h3>
                 <p className="text-sm text-gray-600">{clergy.role}</p>
-                <p className="text-sm text-gray-500">Ordained {clergy.ordained}</p>
+                {clergy.ordinationDate && (
+                  <p className="text-sm text-gray-500">
+                    Ordained {formatDate(clergy.ordinationDate)}
+                  </p>
+                )}
               </div>
-              <button
-                onClick={() => onEdit(clergy)}
-                className="p-2 text-gray-600 hover:text-blue-600"
-              >
-                <Edit className="h-4 w-4" />
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onEdit(clergy)}
+                  className="p-2 text-gray-600 hover:text-blue-600"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={handleDeleteClick}
+                  className="p-2 text-gray-600 hover:text-red-600"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             
             <div className="mt-4 space-y-2">
@@ -97,7 +121,7 @@ const ClergyCard = ({ clergy, onEdit }) => {
                   <span>{clergy.currentAssignment}</span>
                 </div>
                 {clergy.address && (
-                  <MapLink address={`${clergy.currentAssignment}, ${clergy.address}`} />
+                  <MapLink address={`${clergy.currentAssignment}, ${clergy.address.street}, ${clergy.address.city}, ${clergy.address.state} ${clergy.address.zip}`} />
                 )}
               </div>
               <div className="flex items-center text-sm text-gray-600">
@@ -110,23 +134,34 @@ const ClergyCard = ({ clergy, onEdit }) => {
                 <Phone className="h-4 w-4 mr-2" />
                 <span>{clergy.phone}</span>
               </div>
-              <div className="flex items-center text-sm text-gray-600">
-                <Calendar className="h-4 w-4 mr-2" />
-                <span>Name Day: {clergy.nameDay}</span>
-              </div>
+              {clergy.nameDay && (
+                <div className="flex items-center text-sm text-gray-600">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <span>Name Day: {clergy.nameDay.date ? clergy.nameDay.date : clergy.nameDay} 
+                    {clergy.nameDay.saint && ` - ${clergy.nameDay.saint}`}
+                  </span>
+                </div>
+              )}
               {clergy.birthday && (
                 <div className="flex items-center text-sm text-gray-600">
                   <Calendar className="h-4 w-4 mr-2" />
-                  <span>Birthday: {clergy.birthday}</span>
+                  <span>Birthday: {formatDate(clergy.birthday)}</span>
                 </div>
               )}
               {clergy.patronSaintDay && (
                 <div className="flex items-center text-sm text-gray-600">
                   <Calendar className="h-4 w-4 mr-2" />
-                  <span>Patron Saint Day: {clergy.patronSaintDay}</span>
-                  {clergy.patronSaint && (
-                    <span className="ml-1 text-blue-600">({clergy.patronSaint})</span>
-                  )}
+                  <span>
+                    Patron Saint Day: {clergy.patronSaintDay.date} - {clergy.patronSaintDay.saint}
+                  </span>
+                </div>
+              )}
+              {clergy.ordinationDate && (
+                <div className="flex items-center text-sm text-gray-600">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  <span>
+                    Ordained: {formatDate(clergy.ordinationDate)}
+                  </span>
                 </div>
               )}
             </div>
@@ -150,19 +185,31 @@ const ClergyCard = ({ clergy, onEdit }) => {
               <div className="mt-4 pl-4 border-l-2 border-blue-100">
                 {clergy.spouse && (
                   <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-gray-700">{spouseTitle}</h4>
+                    <h4 className="text-sm font-semibold text-gray-700">Spouse</h4>
                     <div className="mt-2 space-y-2">
-                      <p className="text-sm">{clergy.spouse.name}</p>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Mail className="h-3 w-3 mr-2" />
-                        <a href={`mailto:${clergy.spouse.email}`} className="text-blue-600 hover:underline">
-                          {clergy.spouse.email}
-                        </a>
-                      </div>
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="h-3 w-3 mr-2" />
-                        <span>Name Day: {clergy.spouse.nameDay}</span>
-                      </div>
+                      <p className="text-sm">
+                        {spouseTitle} {clergy.spouse.name}
+                      </p>
+                      {clergy.spouse.email && (
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Mail className="h-3 w-3 mr-2" />
+                          <a href={`mailto:${clergy.spouse.email}`} className="text-blue-600 hover:underline">
+                            {clergy.spouse.email}
+                          </a>
+                        </div>
+                      )}
+                      {clergy.spouse.nameDay && (
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Calendar className="h-3 w-3 mr-2" />
+                          <span>Name Day: {clergy.spouse.nameDay}</span>
+                        </div>
+                      )}
+                      {clergy.spouse.birthday && (
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Calendar className="h-3 w-3 mr-2" />
+                          <span>Birthday: {formatDate(clergy.spouse.birthday)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -172,9 +219,20 @@ const ClergyCard = ({ clergy, onEdit }) => {
                     <h4 className="text-sm font-semibold text-gray-700">Children</h4>
                     <div className="mt-2 space-y-3">
                       {clergy.children.map((child, index) => (
-                        <div key={index} className="text-sm">
-                          <p>{child.name}</p>
-                          <p className="text-gray-600">Birthday: {child.birthday}</p>
+                        <div key={index} className="text-sm space-y-1">
+                          <p className="font-medium">{child.name}</p>
+                          {child.birthday && (
+                            <div className="flex items-center text-gray-600">
+                              <Calendar className="h-3 w-3 mr-2" />
+                              <span>Birthday: {formatDate(child.birthday)}</span>
+                            </div>
+                          )}
+                          {child.nameDay && (
+                            <div className="flex items-center text-gray-600">
+                              <Calendar className="h-3 w-3 mr-2" />
+                              <span>Name Day: {child.nameDay}</span>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -190,51 +248,185 @@ const ClergyCard = ({ clergy, onEdit }) => {
 };
 
 const ClergyDirectory = () => {
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingClergy, setEditingClergy] = useState(null);
-  const [clergyList, setClergyList] = useState(mockClergy);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingClergy, setEditingClergy] = useState<Clergy | null>(null);
+  const [clergyList, setClergyList] = useState<Clergy[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
-  // Handle edit clergy
+  useEffect(() => {
+    try {
+      const currentUserStr = localStorage.getItem('currentUser')
+      const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null
+      
+      // Get all clergy records
+      const allClergy = JSON.parse(localStorage.getItem('clergy') || '[]')
+      
+      // Filter based on user role
+      if (currentUser?.role === 'user') {
+        // Clergy users only see their own record
+        const userClergy = allClergy.filter(clergy => 
+          clergy.email === currentUser.email
+        )
+        setClergyList(userClergy)
+      } else {
+        // Admin and staff see all records
+        setClergyList(allClergy)
+      }
+    } catch (error) {
+      console.error('Error loading clergy:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Get current user from localStorage
+    const userStr = localStorage.getItem('currentUser')
+    if (userStr) {
+      setCurrentUser(JSON.parse(userStr))
+    }
+  }, [])
+
   const handleEdit = (clergy) => {
     setEditingClergy(clergy);
     setShowAddForm(true);
   };
 
-  // Handle close form
   const handleCloseForm = () => {
     setShowAddForm(false);
     setEditingClergy(null);
   };
 
-  // Handle save clergy
-  const handleSaveClergy = (formData) => {
-    if (editingClergy) {
-      setClergyList(prevList => 
-        prevList.map(c => c.id === editingClergy.id ? { ...formData, id: c.id } : c)
-      );
+  const handleSaveClergy = (formData: Clergy) => {
+    const processedData = {
+      ...formData,
+      id: formData.id || crypto.randomUUID(),
+      birthday: formData.birthday ? formData.birthday.split('T')[0] : undefined,
+      ordinationDate: formData.ordinationDate ? formData.ordinationDate.split('T')[0] : undefined,
+      patronSaintDay: formData.patronSaintDay ? {
+        ...formData.patronSaintDay,
+        date: formData.patronSaintDay.date
+      } : undefined,
+      spouse: formData.spouse ? {
+        ...formData.spouse,
+        birthday: formData.spouse.birthday ? formData.spouse.birthday.split('T')[0] : undefined
+      } : undefined,
+      children: formData.children ? formData.children.map(child => ({
+        ...child,
+        birthday: child.birthday ? child.birthday.split('T')[0] : undefined
+      })) : undefined
+    };
+
+    console.log('Saving clergy with data:', processedData);
+    
+    // Update clergy list
+    const updatedClergyList = editingClergy 
+      ? clergyList.map(c => c.id === editingClergy.id ? processedData : c)
+      : [...clergyList, processedData];
+    
+    localStorage.setItem('clergy', JSON.stringify(updatedClergyList));
+
+    // Update the parish
+    if (formData.currentAssignment && formData.deaneryId) {
+      const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
+      const updatedParishes = parishes.map(parish => {
+        // If this is the parish we're assigning the clergy to
+        if (parish.name === formData.currentAssignment) {
+          return {
+            ...parish,
+            clergyId: processedData.id,
+            clergyName: `${processedData.type} ${processedData.name}`.trim(),
+            assignedClergy: [
+              ...(parish.assignedClergy || []).filter(c => c.id !== processedData.id),
+              {
+                id: processedData.id,
+                name: `${processedData.type} ${processedData.name}`.trim(),
+                role: processedData.role
+              }
+            ]
+          };
+        }
+        // Remove this clergy from any other parish they might have been assigned to
+        if (parish.clergyId === processedData.id || 
+            parish.assignedClergy?.some(c => c.id === processedData.id)) {
+          const { clergyId, clergyName, assignedClergy = [], ...rest } = parish;
+          return {
+            ...rest,
+            assignedClergy: assignedClergy.filter(c => c.id !== processedData.id)
+          };
+        }
+        return parish;
+      });
+
+      console.log('Updating parishes:', updatedParishes);
+      localStorage.setItem('parishes', JSON.stringify(updatedParishes));
     } else {
-      setClergyList(prevList => [...prevList, { ...formData, id: crypto.randomUUID() }]);
+      // If clergy is no longer assigned to a parish, remove them from any parish they might be in
+      const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
+      const updatedParishes = parishes.map(parish => {
+        if (parish.clergyId === processedData.id || 
+            parish.assignedClergy?.some(c => c.id === processedData.id)) {
+          const { clergyId, clergyName, assignedClergy = [], ...rest } = parish;
+          return {
+            ...rest,
+            assignedClergy: assignedClergy.filter(c => c.id !== processedData.id)
+          };
+        }
+        return parish;
+      });
+      
+      if (parishes.some(p => p.clergyId === processedData.id || 
+                           p.assignedClergy?.some(c => c.id === processedData.id))) {
+        localStorage.setItem('parishes', JSON.stringify(updatedParishes));
+      }
     }
-    handleCloseForm();
+
+    setClergyList(updatedClergyList);
+    setShowAddForm(false);
+    setEditingClergy(null);
+  };
+
+  const hasValidName = (clergy: any): clergy is { name: string } => {
+    return clergy && typeof clergy.name === 'string';
   };
 
   const filteredClergy = clergyList.filter(clergy => 
-    clergy.name.toLowerCase().includes(searchTerm.toLowerCase())
+    hasValidName(clergy) && clergy.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleDelete = (clergyId) => {
+    console.log('Deleting clergy:', clergyId);
+    
+    // Get current clergy from localStorage
+    const existingClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+    
+    // Filter out the deleted clergy
+    const updatedClergy = existingClergy.filter(clergy => clergy.id !== clergyId);
+    
+    // Update localStorage first
+    localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+    
+    // Then update state
+    setClergyList(updatedClergy);
+    
+    // Close any open forms
+    setShowAddForm(false);
+    setEditingClergy(null);
+  };
 
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold">Clergy Directory</h1>
         <div className="flex gap-4">
-          <button 
-            onClick={() => setShowAddForm(true)}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Add New Clergy
-          </button>
+          {(currentUser?.role === 'admin' || currentUser?.role === 'staff') && (
+            <button 
+              onClick={() => setShowAddForm(true)}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add New Clergy
+            </button>
+          )}
           <button className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             <Download className="h-5 w-5 mr-2" />
             Export
@@ -262,7 +454,11 @@ const ClergyDirectory = () => {
           <ClergyCard 
             key={clergy.id}
             clergy={clergy}
-            onEdit={handleEdit}
+            onEdit={(clergy) => {
+              setEditingClergy(clergy);
+              setShowAddForm(true);
+            }}
+            onDelete={handleDelete}
           />
         ))}
       </div>
@@ -284,82 +480,3 @@ const ClergyDirectory = () => {
 };
 
 export default ClergyDirectory;
-
-const mockClergy = [
-  {
-    id: '1',
-    name: 'Fr. John Smith',
-    role: 'Priest',
-    ordained: '2010',
-    status: 'Active',
-    currentAssignment: "St. Mary's Cathedral",
-    address: "123 Main St, New York, NY 10001",
-    email: 'john.smith@diocese.org',
-    phone: '(555) 123-4567',
-    initials: 'JS',
-    nameDay: 'June 24',
-    birthday: 'March 15, 1975',
-    patronSaint: 'St. John the Baptist',
-    patronSaintDay: 'June 24',
-    spouse: {
-      name: 'Kh. Sarah Smith',
-      email: 'sarah.smith@diocese.org',
-      nameDay: 'January 12',
-      birthday: 'April 20, 1977',
-      patronSaint: 'St. Sarah',
-      patronSaintDay: 'January 12'
-    },
-    children: [
-      { 
-        name: 'James Smith', 
-        birthday: 'March 15, 2012',
-        patronSaint: 'St. James',
-        patronSaintDay: 'October 23'
-      },
-      { 
-        name: 'Anna Smith', 
-        birthday: 'July 23, 2014',
-        patronSaint: 'St. Anna',
-        patronSaintDay: 'July 25'
-      }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Dcn. Michael Johnson',
-    role: 'Deacon',
-    ordained: '2015',
-    status: 'Active',
-    currentAssignment: "St. Nicholas Orthodox Church",
-    address: "456 Church Ave, Brooklyn, NY 11215",
-    email: 'michael.johnson@diocese.org',
-    phone: '(555) 234-5678',
-    initials: 'MJ',
-    nameDay: 'November 8',
-    birthday: 'September 29, 1980',
-    patronSaint: 'St. Michael the Archangel',
-    patronSaintDay: 'November 8',
-    spouse: {
-      name: 'Sh. Rachel Johnson',
-      email: 'rachel.johnson@diocese.org',
-      nameDay: 'August 5',
-      birthday: 'May 15, 1982',
-      patronSaint: 'St. Rachel',
-      patronSaintDay: 'August 5'
-    },
-    children: [
-      { 
-        name: 'Peter Johnson', 
-        birthday: 'April 10, 2016',
-        patronSaint: 'St. Peter',
-        patronSaintDay: 'June 29'
-      },
-      { 
-        name: 'Maria Johnson', 
-        birthday: 'September 2, 2018',
-        patronSaint: 'St. Mary',
-        patronSaintDay: 'August 15'
-      }
-    ]
-  }
-];

@@ -6,6 +6,7 @@ import parse from 'date-fns/parse'
 import startOfWeek from 'date-fns/startOfWeek'
 import getDay from 'date-fns/getDay'
 import "react-big-calendar/lib/css/react-big-calendar.css"
+import "react-big-calendar/lib/addons/dragAndDrop/styles.css"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { formatDistanceToNow } from 'date-fns'
@@ -19,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { saveCalendarEvent, getCalendarEvents, deleteCalendarEvent } from '@/lib/calendarStorage'
 
 const locales = {
   'en-US': require('date-fns/locale/en-US')
@@ -56,6 +58,15 @@ interface EventFormProps {
   onDelete?: (event: Event) => void  // Add this
 }
 
+interface CustomToolbarProps {
+  setEvents: React.Dispatch<React.SetStateAction<Event[]>>;
+  date: Date;
+  view: string;
+  onNavigate: (date: Date) => void;
+  onView: (view: string) => void;
+  label: string;
+}
+
 export default function CalendarPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -67,35 +78,15 @@ export default function CalendarPage() {
   })
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [view, setView] = useState('month')
+  const [date, setDate] = useState(new Date())
 
-  // Load events from localStorage when component mounts
+  // Load events when component mounts
   useEffect(() => {
-    const savedEvents = localStorage.getItem('calendarEvents')
-    console.log('Loading events:', savedEvents) // Debug log
-    if (savedEvents) {
-      try {
-        const parsedEvents = JSON.parse(savedEvents).map((event: any) => ({
-          ...event,
-          start: new Date(event.start),
-          end: new Date(event.end),
-          reminders: event.reminders?.map((reminder: any) => ({
-            ...reminder,
-            time: new Date(reminder.time)
-          }))
-        }))
-        console.log('Parsed events:', parsedEvents) // Debug log
-        setEvents(parsedEvents)
-      } catch (error) {
-        console.error('Error parsing events:', error)
-      }
-    }
+    const savedEvents = getCalendarEvents()
+    console.log('Loading saved events:', savedEvents)
+    setEvents(savedEvents)
   }, [])
-
-  // Save events to localStorage whenever they change
-  useEffect(() => {
-    console.log('Saving events:', events) // Debug log
-    localStorage.setItem('calendarEvents', JSON.stringify(events))
-  }, [events])
 
   const handleSelectSlot = ({ start }: { start: Date; end: Date }) => {
     const selectedDate = new Date(start.toLocaleDateString() + ' 09:00:00')
@@ -155,15 +146,31 @@ export default function CalendarPage() {
       return
     }
 
-    const newEvents = selectedEvent?.id
-      ? events.map(event => 
-          event.id === selectedEvent.id ? { ...event, ...eventData } : event
-        )
-      : [...events, { ...eventData, id: crypto.randomUUID() } as Event]
-    
-    console.log('Submitting event, new events:', newEvents) // Debug log
-    setEvents(newEvents)
-    setIsDialogOpen(false)
+    // Create new event with proper date objects
+    const newEvent = {
+      ...eventData,
+      id: selectedEvent?.id || crypto.randomUUID(),
+      start: new Date(eventData.start!),
+      end: new Date(eventData.end!),
+      reminders: eventData.reminders?.map(reminder => ({
+        ...reminder,
+        time: new Date(reminder.time)
+      }))
+    } as Event
+
+    // Save event
+    const saved = saveCalendarEvent(newEvent)
+    if (saved) {
+      // Update local state
+      const updatedEvents = selectedEvent?.id
+        ? events.map(event => event.id === selectedEvent.id ? newEvent : event)
+        : [...events, newEvent]
+      
+      setEvents(updatedEvents)
+      setIsDialogOpen(false)
+    } else {
+      alert('Error saving event')
+    }
   }
 
   const eventStyleGetter = (event: Event, start: Date, end: Date, isSelected: boolean) => {
@@ -196,100 +203,144 @@ export default function CalendarPage() {
     }
   }
 
+  const confirmDelete = () => {
+    if (eventToDelete?.id) {
+      const deleted = deleteCalendarEvent(eventToDelete.id)
+      if (deleted) {
+        setEvents(events.filter(e => e.id !== eventToDelete.id))
+        setEventToDelete(null)
+        setShowDeleteDialog(false)
+        setIsDialogOpen(false)
+      } else {
+        alert('Error deleting event')
+      }
+    }
+  }
+
   const handleDeleteEvent = (event: Event) => {
-    if (event.id) {  // Make sure event has an ID
+    if (event.id) {
       setEventToDelete(event)
       setShowDeleteDialog(true)
     }
   }
 
-  const confirmDelete = () => {
-    if (eventToDelete) {
-      setEvents(events.filter(e => e.id !== eventToDelete.id))
-      setEventToDelete(null)
-      setIsDialogOpen(false)
+  const handleClearAll = () => {
+    if (window.confirm('Are you sure you want to delete all events? This cannot be undone.')) {
+      setEvents([]);
+      localStorage.removeItem('calendarEvents');
     }
-  }
+  };
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto">
-      <Calendar
-        localizer={localizer}
-        events={events}
-        startAccessor="start"
-        endAccessor="end"
-        onSelectEvent={handleEventClick}
-        onSelectSlot={handleSelectSlot}
-        selectable
-        eventPropGetter={eventStyleGetter}
-        components={{
-          toolbar: CustomToolbar
-        }}
-        {...calendarStyles}
-        views={['month', 'week', 'day']}
-        defaultView="month"
-        popup
-        className="rounded-lg"
-      />
-      
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedEvent?.id ? 'Edit Event' : 'Create Event'}
-            </DialogTitle>
-          </DialogHeader>
-          <EventForm
-            event={selectedEvent || formData}
-            onSubmit={handleEventSubmit}
-            onClose={() => setIsDialogOpen(false)}
-            onDelete={handleDeleteEvent}  // Pass the delete handler
-          />
-        </DialogContent>
-      </Dialog>
+    <div className="p-6 h-full">
+      <div className="max-w-[1400px] mx-auto bg-white rounded-lg shadow-sm border h-full">
+        <button
+          onClick={() => {
+            const saved = localStorage.getItem('calendarEvents')
+            console.log('Current localStorage events:', saved)
+            console.log('Current state events:', events)
+          }}
+          className="mb-4 px-4 py-2 bg-gray-100 rounded"
+        >
+          Debug: Check Events
+        </button>
 
-      <AlertDialog open={!!eventToDelete} onOpenChange={() => setEventToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Event</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete "{eventToDelete?.title}"? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <div className="mb-4 flex justify-end">
+          <button
+            type="button"
+            onClick={handleClearAll}
+            className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-transparent rounded-full hover:bg-red-100"
+          >
+            Clear All Events
+          </button>
+        </div>
+        <Calendar
+          localizer={localizer}
+          events={events}
+          startAccessor="start"
+          endAccessor="end"
+          onSelectEvent={handleEventClick}
+          onSelectSlot={handleSelectSlot}
+          selectable
+          eventPropGetter={eventStyleGetter}
+          components={{
+            toolbar: (props) => (
+              <CustomToolbar
+                {...props}
+                setEvents={setEvents}
+                view={view}
+                onView={setView}
+                date={date}
+                onNavigate={(newDate) => setDate(newDate)}
+              />
+            )
+          }}
+          view={view}
+          onView={setView}
+          date={date}
+          onNavigate={setDate}
+          views={['month', 'week', 'day']}
+          defaultView="month"
+          popup
+          className="rounded-lg"
+        />
+        
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedEvent?.id ? 'Edit Event' : 'Create Event'}
+              </DialogTitle>
+            </DialogHeader>
+            <EventForm
+              event={selectedEvent || formData}
+              onSubmit={handleEventSubmit}
+              onClose={() => setIsDialogOpen(false)}
+              onDelete={handleDeleteEvent}  // Pass the delete handler
+            />
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={showDeleteDialog} onOpenChange={() => setShowDeleteDialog(false)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Event</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{eventToDelete?.title}"? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   )
 }
 
 const calendarStyles = {
-  className: "p-4",
+  className: "h-full p-4",
+  style: {
+    minHeight: 'calc(100vh - 200px)',
+  },
   dayPropGetter: (date: Date) => ({
     className: 'hover:bg-blue-50 cursor-pointer transition-colors',
     style: {
+      margin: 0,
       padding: '8px',
       border: '1px solid #e5e7eb',
       backgroundColor: '#fff',
     },
   }),
-  style: {
-    height: 'calc(100vh - 200px)', // Adjust height as needed
-  },
   dayHeaderStyle: {
     backgroundColor: '#f3f4f6',
     padding: '8px',
     borderBottom: '1px solid #e5e7eb',
   },
-  monthHeaderStyle: {
-    padding: '12px',
-    borderBottom: '1px solid #e5e7eb',
-  }
 }
 
 const EventForm = ({ event, onSubmit, onClose, onDelete }: EventFormProps) => {
@@ -551,57 +602,89 @@ const EventForm = ({ event, onSubmit, onClose, onDelete }: EventFormProps) => {
   )
 }
 
-const CustomToolbar = (toolbar: any) => {
-  const goToBack = () => {
-    toolbar.onNavigate('PREV');
-  };
+const CustomToolbar = ({ 
+  setEvents, 
+  date, 
+  view, 
+  onNavigate, 
+  onView, 
+  label 
+}: CustomToolbarProps) => {
 
-  const goToNext = () => {
-    toolbar.onNavigate('NEXT');
-  };
-
-  const goToCurrent = () => {
-    toolbar.onNavigate('TODAY');
-  };
-
-  const handleClearAll = () => {
-    if (window.confirm('Are you sure you want to delete all events? This cannot be undone.')) {
-      setEvents([])
-      localStorage.removeItem('calendarEvents')
+  const handleNavigation = (direction: 'PREV' | 'NEXT') => {
+    const newDate = new Date(date);
+    
+    switch(view) {
+      case 'day':
+        // Add or subtract one day
+        newDate.setDate(date.getDate() + (direction === 'NEXT' ? 1 : -1));
+        break;
+      case 'week':
+        // Add or subtract one week
+        newDate.setDate(date.getDate() + (direction === 'NEXT' ? 7 : -7));
+        break;
+      case 'month':
+        // Add or subtract one month
+        newDate.setMonth(date.getMonth() + (direction === 'NEXT' ? 1 : -1));
+        break;
     }
-  }
+    onNavigate(newDate);
+  };
 
   return (
-    <div className="rbc-toolbar">
-      <div className="rbc-btn-group">
-        <button type="button" onClick={goToCurrent}>
+    <div className="flex justify-between items-center mb-4">
+      <div className="flex gap-2">
+        <button
+          onClick={() => onNavigate(new Date())}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+        >
           Today
         </button>
-        <button type="button" onClick={goToBack}>
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-        <button type="button" onClick={goToNext}>
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-      <span className="rbc-toolbar-label">{toolbar.label}</span>
-      <div className="rbc-btn-group">
-        {toolbar.views.map((view: string) => (
-          <button
-            key={view}
-            type="button"
-            onClick={() => toolbar.onView(view)}
-            className={view === toolbar.view ? 'rbc-active' : ''}
-          >
-            {view.charAt(0).toUpperCase() + view.slice(1)}
-          </button>
-        ))}
         <button
-          type="button"
-          onClick={handleClearAll}
-          className="text-red-600 hover:text-red-700"
+          onClick={() => handleNavigation('PREV')}
+          className="p-2 text-gray-600 hover:text-gray-900"
         >
-          Clear All
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => handleNavigation('NEXT')}
+          className="p-2 text-gray-600 hover:text-gray-900"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+        <span className="text-lg font-semibold text-gray-900">{label}</span>
+      </div>
+      
+      <div className="flex gap-2">
+        <button
+          onClick={() => onView('month')}
+          className={`px-4 py-2 text-sm font-medium rounded-md ${
+            view === 'month' 
+              ? 'bg-blue-600 text-white' 
+              : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          Month
+        </button>
+        <button
+          onClick={() => onView('week')}
+          className={`px-4 py-2 text-sm font-medium rounded-md ${
+            view === 'week' 
+              ? 'bg-blue-600 text-white' 
+              : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          Week
+        </button>
+        <button
+          onClick={() => onView('day')}
+          className={`px-4 py-2 text-sm font-medium rounded-md ${
+            view === 'day' 
+              ? 'bg-blue-600 text-white' 
+              : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+          }`}
+        >
+          Day
         </button>
       </div>
     </div>
