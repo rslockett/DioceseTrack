@@ -73,22 +73,38 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const router = useRouter();
-  const [userRole, setUserRole] = useState<'admin' | 'staff' | 'user'>('user');
+  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    // Get current user from localStorage
-    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    if (!currentUser.role) {
-      // If no user is logged in, redirect to login
-      router.push('/login');
-      return;
+    try {
+      // Get current user from localStorage
+      const userStr = localStorage.getItem('currentUser')
+      if (!userStr) {
+        router.push('/login')
+        return
+      }
+
+      const currentUser = JSON.parse(userStr)
+      if (!currentUser?.role) {
+        router.push('/login')
+        return
+      }
+
+      setUser(currentUser)
+    } catch (error) {
+      console.error('Error parsing user data:', error)
+      router.push('/login')
     }
-    setUserRole(currentUser.role);
-  }, []);
+  }, [router])
+
+  // Show loading state while checking user
+  if (!user) {
+    return <div>Loading...</div>
+  }
 
   // Filter menu items based on user role
-  const menuItems = ALL_MENU_ITEMS.filter(item => item.roles.includes(userRole));
+  const menuItems = ALL_MENU_ITEMS.filter(item => item.roles.includes(user.role));
 
   // For regular users, modify the clergy link to point to their profile
   const getModifiedHref = (item: typeof ALL_MENU_ITEMS[0]) => {

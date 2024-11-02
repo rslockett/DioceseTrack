@@ -8,6 +8,26 @@ import UserCreateForm from '@/components/UserCreateForm'
 
 interface PageProps {}
 
+const SYSTEM_ADMIN = {
+  id: 'system-admin-id',
+  firstName: 'System',
+  lastName: 'Administrator',
+  email: 'system@administrator.com',
+  role: 'admin',
+  status: 'active',
+  dateCreated: new Date().toISOString()
+};
+
+const DIOCESE_ADMIN = {
+  id: 'diocese-admin-id',
+  firstName: 'Diocese',
+  lastName: 'Administrator',
+  email: 'admin@diocesetrack.com',
+  role: 'admin',
+  status: 'active',
+  dateCreated: new Date().toISOString()
+};
+
 const Page: React.FC<PageProps> = () => {
   const router = useRouter()
   const [showPassword, setShowPassword] = React.useState(false)
@@ -16,12 +36,26 @@ const Page: React.FC<PageProps> = () => {
   const [error, setError] = React.useState('')
   const [showSignup, setShowSignup] = useState(false)
 
+  // Initialize admin accounts in localStorage if they don't exist
   useEffect(() => {
-    console.log('=== LOGIN DEBUG ===');
-    console.log('LoginCredentials:', JSON.parse(localStorage.getItem('loginCredentials') || '[]'));
-    console.log('UserAuth:', JSON.parse(localStorage.getItem('userAuth') || '[]'));
-    console.log('Clergy:', JSON.parse(localStorage.getItem('clergy') || '[]'));
-  }, []);
+    const users = JSON.parse(localStorage.getItem('userAuth') || '[]')
+    let updated = false
+
+    if (!users.some(user => user.email === SYSTEM_ADMIN.email)) {
+      users.push(SYSTEM_ADMIN)
+      updated = true
+    }
+
+    if (!users.some(user => user.email === DIOCESE_ADMIN.email)) {
+      users.push(DIOCESE_ADMIN)
+      updated = true
+    }
+
+    if (updated) {
+      localStorage.setItem('userAuth', JSON.stringify(users))
+      console.log('Admin accounts initialized')
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,54 +65,37 @@ const Page: React.FC<PageProps> = () => {
     console.log('Email:', email)
 
     try {
-      const credentials = JSON.parse(localStorage.getItem('loginCredentials') || '[]')
-      const users = JSON.parse(localStorage.getItem('userAuth') || '[]')
-      
-      console.log('Found credentials:', credentials)
-      console.log('Found users:', users)
-
-      // Check for admin
-      if (email === 'admin@diocesetrack.com' && password === 'admin123') {
-        const adminUser = users.find(u => u.role === 'admin')
-        localStorage.setItem('currentUser', JSON.stringify(adminUser))
-        document.cookie = `currentUser=${JSON.stringify(adminUser)}; path=/`
-        router.push('/dashboard')
+      // Check for system administrator
+      if (email === 'system@administrator.com' && password === 'admin1234') {
+        handleSuccessfulLogin(SYSTEM_ADMIN)
         return
       }
 
-      // Check for regular users
-      const userMatch = credentials.find((cred: any) => 
-        cred.email === email && cred.password === password
-      )
-
-      console.log('User match:', userMatch)
-
-      if (userMatch) {
-        const user = users.find(u => u.id === userMatch.userId)
-        console.log('Found user:', user)
-
-        if (user) {
-          localStorage.setItem('currentUser', JSON.stringify(user))
-          document.cookie = `currentUser=${JSON.stringify(user)}; path=/`
-          
-          // Simple routing - no profile paths
-          if (user.role === 'user') {
-            console.log('Redirecting clergy user to /clergy')
-            router.push('/clergy')
-          } else {
-            console.log('Redirecting to dashboard')
-            router.push('/dashboard')
-          }
-        } else {
-          setError('User account not found')
-        }
-      } else {
-        setError('Invalid email or password')
+      // Check for diocese administrator
+      if (email === 'admin@diocesetrack.com' && password === 'admin123') {
+        handleSuccessfulLogin(DIOCESE_ADMIN)
+        return
       }
+
+      setError('Invalid email or password')
     } catch (err) {
       console.error('Login error:', err)
       setError('An error occurred during login')
     }
+  }
+
+  const handleSuccessfulLogin = (userData: typeof SYSTEM_ADMIN) => {
+    const userJson = JSON.stringify(userData)
+    localStorage.setItem('currentUser', userJson)
+    document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`
+    
+    console.log('Login successful:', {
+      user: userData.email,
+      localStorage: localStorage.getItem('currentUser'),
+      cookie: document.cookie
+    })
+
+    router.push('/dashboard')
   }
 
   return (

@@ -45,6 +45,41 @@ const getTitleAbbreviation = (type: string) => {
   }
 };
 
+// Update the admin constants to match exactly
+const SYSTEM_ADMIN = {
+  id: 'system-admin-id',
+  firstName: 'System',
+  lastName: 'Administrator',
+  email: 'system@administrator.com',
+  role: 'admin',
+  status: 'active',
+  dateCreated: new Date().toISOString()
+};
+
+const DIOCESE_ADMIN = {
+  id: 'diocese-admin-id',
+  firstName: 'Diocese',
+  lastName: 'Administrator',
+  email: 'admin@diocesetrack.com',
+  role: 'admin',
+  status: 'active',
+  dateCreated: new Date().toISOString()
+};
+
+// Admin credentials remain the same
+const DEFAULT_ADMIN_CREDENTIALS = [
+  {
+    userId: 'system-admin-id',
+    email: 'system@administrator.com',
+    password: 'admin1234'
+  },
+  {
+    userId: 'diocese-admin-id',
+    email: 'admin@diocesetrack.com',
+    password: 'admin123'
+  }
+];
+
 const SettingsPage = () => {
   const [users, setUsers] = useState<UserAuth[]>([])
   const [showInviteForm, setShowInviteForm] = useState(false)
@@ -110,15 +145,42 @@ const SettingsPage = () => {
   }
 
   useEffect(() => {
-    // Load users and credentials
     const loadData = () => {
-      const users = JSON.parse(localStorage.getItem('userAuth') || '[]');
-      const credentials = JSON.parse(localStorage.getItem('loginCredentials') || '[]');
-      setUsers(users);
-      setLoginCredentials(credentials);
+      const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]');
+      const existingCredentials = JSON.parse(localStorage.getItem('loginCredentials') || '[]');
+      
+      let updatedUsers = [...existingUsers];
+      let updatedCredentials = [...existingCredentials];
+      let updated = false;
+
+      // Ensure both admin users exist
+      if (!updatedUsers.some(user => user.email === SYSTEM_ADMIN.email)) {
+        updatedUsers.push(SYSTEM_ADMIN);
+        updated = true;
+      }
+
+      if (!updatedUsers.some(user => user.email === DIOCESE_ADMIN.email)) {
+        updatedUsers.push(DIOCESE_ADMIN);
+        updated = true;
+      }
+
+      // Ensure admin credentials exist
+      DEFAULT_ADMIN_CREDENTIALS.forEach(cred => {
+        if (!updatedCredentials.some(existing => existing.email === cred.email)) {
+          updatedCredentials.push(cred);
+          updated = true;
+        }
+      });
+
+      if (updated) {
+        localStorage.setItem('userAuth', JSON.stringify(updatedUsers));
+        localStorage.setItem('loginCredentials', JSON.stringify(updatedCredentials));
+      }
+
+      setUsers(updatedUsers);
+      setLoginCredentials(updatedCredentials);
     };
 
-    // Only load user-related data, DO NOT touch clergy data
     loadData();
   }, []);
 
