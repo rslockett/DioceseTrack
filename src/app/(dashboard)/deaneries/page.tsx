@@ -55,10 +55,24 @@ const DeaneryCard = ({ deanery, onEdit, onDelete }: DeaneryCardProps) => {
             </div>
             
             <div className="mt-4 space-y-2">
-              <div className="flex items-center text-sm text-gray-600">
-                <Users className="h-4 w-4 mr-2" />
-                <span>Parishes: {deanery.parishes?.length || 0}</span>
+              <div className="flex flex-col space-y-1">
+                <div className="flex items-center text-sm text-gray-600">
+                  <Users className="h-4 w-4 mr-2" />
+                  <span className="font-semibold">Assigned Parishes:</span>
+                </div>
+                {deanery.parishes?.length > 0 ? (
+                  deanery.parishes.map(parish => (
+                    <div key={parish.id} className="ml-6 text-sm text-gray-600">
+                      {parish.name} {parish.status && `(${parish.status})`}
+                    </div>
+                  ))
+                ) : (
+                  <div className="ml-6 text-sm text-gray-500 italic">
+                    No parishes assigned
+                  </div>
+                )}
               </div>
+
               {deanery.contactEmail && (
                 <div className="flex items-center text-sm text-gray-600">
                   <Mail className="h-4 w-4 mr-2" />
@@ -251,6 +265,37 @@ const DeaneriesPage = () => {
       (deanery.contactEmail || '').toLowerCase().includes(searchLower)
     );
   });
+
+  const syncDeaneryParishes = () => {
+    try {
+      // Get current data
+      const deaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
+      const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
+
+      // Update deaneries with their parishes
+      const updatedDeaneries = deaneries.map(deanery => {
+        const deaneryParishes = parishes
+          .filter(parish => parish.deaneryId === deanery.id)
+          .map(parish => ({
+            id: parish.id,
+            name: parish.name,
+            status: parish.status
+          }));
+
+        return {
+          ...deanery,
+          parishes: deaneryParishes
+        };
+      });
+
+      // Save updated deaneries
+      localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
+      return updatedDeaneries;
+    } catch (error) {
+      console.error('Error syncing deanery parishes:', error);
+      return null;
+    }
+  };
 
   return (
     <div className="p-6">

@@ -296,93 +296,75 @@ const ClergyDirectory = () => {
     setEditingClergy(null);
   };
 
-  const handleSaveClergy = (formData: Clergy) => {
+  const handleSaveClergy = async (formData: Clergy) => {
+    console.log('1. Starting save process with formData:', formData);
+
+    // Validate required fields
+    if (!formData.name || !formData.type) {
+      console.log('2. Validation failed');
+      alert('Name and Clergy Type are required fields');
+      return;
+    }
+
     const processedData = {
       ...formData,
       id: formData.id || crypto.randomUUID(),
-      birthday: formData.birthday ? formData.birthday.split('T')[0] : undefined,
-      ordinationDate: formData.ordinationDate ? formData.ordinationDate.split('T')[0] : undefined,
-      patronSaintDay: formData.patronSaintDay ? {
-        ...formData.patronSaintDay,
-        date: formData.patronSaintDay.date
-      } : undefined,
-      spouse: formData.spouse ? {
-        ...formData.spouse,
-        birthday: formData.spouse.birthday ? formData.spouse.birthday.split('T')[0] : undefined
-      } : undefined,
-      children: formData.children ? formData.children.map(child => ({
-        ...child,
-        birthday: child.birthday ? child.birthday.split('T')[0] : undefined
-      })) : undefined
     };
 
-    console.log('Saving clergy with data:', processedData);
-    
-    // Update clergy list
-    const updatedClergyList = editingClergy 
-      ? clergyList.map(c => c.id === editingClergy.id ? processedData : c)
-      : [...clergyList, processedData];
-    
-    localStorage.setItem('clergy', JSON.stringify(updatedClergyList));
+    try {
+      // Update clergy list
+      const updatedClergyList = editingClergy
+        ? clergyList.map(c => c.id === editingClergy.id ? processedData : c)
+        : [...clergyList, processedData];
 
-    // Update the parish
-    if (formData.currentAssignment && formData.deaneryId) {
-      const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
-      const updatedParishes = parishes.map(parish => {
-        // If this is the parish we're assigning the clergy to
-        if (parish.name === formData.currentAssignment) {
-          return {
-            ...parish,
-            clergyId: processedData.id,
-            clergyName: `${processedData.type} ${processedData.name}`.trim(),
-            assignedClergy: [
-              ...(parish.assignedClergy || []).filter(c => c.id !== processedData.id),
-              {
-                id: processedData.id,
-                name: `${processedData.type} ${processedData.name}`.trim(),
-                role: processedData.role
+      // Handle parish assignment
+      if (formData.currentAssignment && formData.assignmentType === 'Parish') {
+        console.log('5. Handling parish assignment:', formData.currentAssignment);
+        const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
+        const updatedParishes = parishes.map(parish => {
+          if (parish.name === formData.currentAssignment) {
+            // Remove clergy from previous assignments if any
+            const otherParishes = parishes.filter(p => p.name !== formData.currentAssignment);
+            otherParishes.forEach(p => {
+              if (p.assignedClergy) {
+                p.assignedClergy = p.assignedClergy.filter(c => c.id !== processedData.id);
               }
-            ]
-          };
-        }
-        // Remove this clergy from any other parish they might have been assigned to
-        if (parish.clergyId === processedData.id || 
-            parish.assignedClergy?.some(c => c.id === processedData.id)) {
-          const { clergyId, clergyName, assignedClergy = [], ...rest } = parish;
-          return {
-            ...rest,
-            assignedClergy: assignedClergy.filter(c => c.id !== processedData.id)
-          };
-        }
-        return parish;
-      });
+            });
 
-      console.log('Updating parishes:', updatedParishes);
-      localStorage.setItem('parishes', JSON.stringify(updatedParishes));
-    } else {
-      // If clergy is no longer assigned to a parish, remove them from any parish they might be in
-      const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
-      const updatedParishes = parishes.map(parish => {
-        if (parish.clergyId === processedData.id || 
-            parish.assignedClergy?.some(c => c.id === processedData.id)) {
-          const { clergyId, clergyName, assignedClergy = [], ...rest } = parish;
-          return {
-            ...rest,
-            assignedClergy: assignedClergy.filter(c => c.id !== processedData.id)
-          };
-        }
-        return parish;
-      });
-      
-      if (parishes.some(p => p.clergyId === processedData.id || 
-                           p.assignedClergy?.some(c => c.id === processedData.id))) {
+            // Add or update clergy in current parish
+            const clergyAssignment = {
+              id: processedData.id,
+              name: processedData.name,
+              role: processedData.role || 'Pastor',
+              type: processedData.type,
+              dateAssigned: new Date().toISOString()
+            };
+
+            return {
+              ...parish,
+              assignedClergy: parish.assignedClergy 
+                ? [...parish.assignedClergy.filter(c => c.id !== processedData.id), clergyAssignment]
+                : [clergyAssignment]
+            };
+          }
+          return parish;
+        });
+
         localStorage.setItem('parishes', JSON.stringify(updatedParishes));
       }
-    }
 
-    setClergyList(updatedClergyList);
-    setShowAddForm(false);
-    setEditingClergy(null);
+      // Save clergy updates
+      localStorage.setItem('clergy', JSON.stringify(updatedClergyList));
+      
+      // Update state
+      setClergyList(updatedClergyList);
+      setShowAddForm(false);
+      setEditingClergy(null);
+
+    } catch (error) {
+      console.error('Error saving clergy:', error);
+      alert('There was an error saving the changes. Please try again.');
+    }
   };
 
   const hasValidName = (clergy: any): clergy is { name: string } => {
@@ -394,23 +376,38 @@ const ClergyDirectory = () => {
   );
 
   const handleDelete = (clergyId) => {
-    console.log('Deleting clergy:', clergyId);
+    console.log('1. Starting delete process for clergyId:', clergyId);
     
-    // Get current clergy from localStorage
-    const existingClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-    
-    // Filter out the deleted clergy
-    const updatedClergy = existingClergy.filter(clergy => clergy.id !== clergyId);
-    
-    // Update localStorage first
-    localStorage.setItem('clergy', JSON.stringify(updatedClergy));
-    
-    // Then update state
-    setClergyList(updatedClergy);
-    
-    // Close any open forms
-    setShowAddForm(false);
-    setEditingClergy(null);
+    try {
+      // Get current clergy and users from localStorage
+      const existingClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+      const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]');
+      console.log('2. Current users:', existingUsers);
+      
+      // Filter out the deleted clergy
+      const updatedClergy = existingClergy.filter(clergy => clergy.id !== clergyId);
+      
+      // Filter out the associated user
+      const updatedUsers = existingUsers.filter(user => user.clergyId !== clergyId);
+      console.log('3. Updated users list:', updatedUsers);
+      
+      // Update localStorage
+      localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+      localStorage.setItem('userAuth', JSON.stringify(updatedUsers));
+      console.log('4. Storage updated successfully');
+      
+      // Update state
+      setClergyList(updatedClergy);
+      
+      // Close any open forms
+      setShowAddForm(false);
+      setEditingClergy(null);
+      
+      console.log('5. Delete process completed successfully');
+    } catch (error) {
+      console.error('Error during delete process:', error);
+      alert('There was an error deleting the record. Please try again.');
+    }
   };
 
   return (

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, X } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
@@ -84,6 +84,35 @@ export function AddDeaneryForm({ initialData, onClose, onSave, onDelete }: AddDe
       setParishes([])
     }
   }, [initialData])
+
+  // Add this useEffect to load assigned parishes
+  useEffect(() => {
+    try {
+      const storedParishes = JSON.parse(localStorage.getItem('parishes') || '[]');
+      console.log('Loading parishes:', storedParishes);
+      
+      // Find parishes assigned to this deanery
+      const assignedParishes = storedParishes.filter(
+        parish => parish.deaneryId === initialData?.id
+      );
+      console.log('Assigned parishes:', assignedParishes);
+      
+      // Set the parishes in state
+      setParishes(storedParishes);
+      
+      // Set the selected parishes IDs
+      const assignedParishIds = assignedParishes.map(p => p.id);
+      console.log('Setting selected parish IDs:', assignedParishIds);
+      
+      setSelectedParishes(assignedParishIds);
+      setFormData(prev => ({
+        ...prev,
+        parishes: assignedParishIds
+      }));
+    } catch (error) {
+      console.error('Error loading assigned parishes:', error);
+    }
+  }, [initialData?.id]); // Only run when the deanery ID changes
 
   const handleDeanSelect = (selectedClergy: any) => {
     setFormData({
@@ -245,121 +274,112 @@ export function AddDeaneryForm({ initialData, onClose, onSave, onDelete }: AddDe
   )
 
   const parishesSelection = (
-    <div className="space-y-2 relative w-full">
-      <Label>Parishes ({selectedParishes.length} selected)</Label>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            className="w-full justify-between"
-          >
-            {selectedParishes.length > 0
-              ? `${selectedParishes.length} parish${selectedParishes.length === 1 ? '' : 'es'} selected`
-              : "Select parishes..."}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent 
-          className="p-0 bg-white shadow-md border w-[var(--radix-popover-trigger-width)]" 
-          align="start"
-          sideOffset={5}
-        >
-          <div className="border rounded-md bg-white">
-            <div className="flex items-center border-b px-3 bg-white">
-              <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-              <input
-                className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-slate-500"
-                placeholder="Search parishes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <Label className="text-base font-medium">Assigned Parishes</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Parish
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0 bg-white shadow-md border" align="end">
+            <div className="p-2 border-b bg-white">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Search parishes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-4 py-2 text-sm border rounded-md bg-white"
+                />
+              </div>
             </div>
-            <div className="max-h-[300px] overflow-y-auto bg-white">
-              {parishes.length === 0 ? (
-                <div className="py-6 text-center text-sm">No parishes found.</div>
-              ) : (
-                <div className="p-1">
-                  {parishes
-                    .filter(parish => 
-                      parish.name.toLowerCase().includes(searchQuery.toLowerCase())
-                    )
-                    .map((parish) => (
-                      <div
-                        key={parish.id}
-                        className="flex items-center space-x-2 p-2 hover:bg-slate-100 rounded-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          id={`parish-${parish.id}`}
-                          checked={selectedParishes.includes(parish.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedParishes([...selectedParishes, parish.id]);
-                              setFormData({
-                                ...formData,
-                                parishes: [...formData.parishes, parish.id]
-                              });
-                            } else {
-                              setSelectedParishes(selectedParishes.filter(id => id !== parish.id));
-                              setFormData({
-                                ...formData,
-                                parishes: formData.parishes.filter(id => id !== parish.id)
-                              });
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <label 
-                          htmlFor={`parish-${parish.id}`}
-                          className="flex-1 text-sm cursor-pointer"
-                        >
-                          <div className="font-medium">{parish.name}</div>
-                          {parish.priestName && (
-                            <div className="text-xs text-gray-500">
-                              Priest: {parish.priestName}
-                            </div>
-                          )}
-                        </label>
-                      </div>
-                    ))}
+            <div className="max-h-60 overflow-y-auto bg-white">
+              {parishes
+                .filter(parish => {
+                  return !selectedParishes.includes(parish.id) &&
+                    parish.name.toLowerCase().includes(searchQuery.toLowerCase());
+                })
+                .map((parish) => (
+                  <button
+                    key={parish.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedParishes([...selectedParishes, parish.id]);
+                      setFormData({
+                        ...formData,
+                        parishes: [...formData.parishes, parish.id]
+                      });
+                      setSearchQuery('');
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                      <span className="text-blue-600 text-sm font-medium">
+                        {parish.name.charAt(0)}
+                      </span>
+                    </div>
+                    <span className="text-sm">{parish.name}</span>
+                  </button>
+                ))}
+              {parishes
+                .filter(parish => {
+                  return !selectedParishes.includes(parish.id) &&
+                    parish.name.toLowerCase().includes(searchQuery.toLowerCase());
+                }).length === 0 && (
+                <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                  No parishes available
                 </div>
               )}
             </div>
-          </div>
-        </PopoverContent>
-      </Popover>
+          </PopoverContent>
+        </Popover>
+      </div>
 
-      {selectedParishes.length > 0 && (
-        <div className="mt-2 p-2 border rounded-md bg-slate-50">
-          <div className="flex flex-wrap gap-2">
-            {selectedParishes.map(id => {
-              const parish = parishes.find(p => p.id === id);
-              return parish ? (
-                <div 
-                  key={id}
-                  className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full text-sm border shadow-sm"
-                >
-                  <span>{parish.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedParishes(selectedParishes.filter(pId => pId !== id));
-                      setFormData({
-                        ...formData,
-                        parishes: formData.parishes.filter(pId => pId !== id)
-                      });
-                    }}
-                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full w-5 h-5 flex items-center justify-center"
-                  >
-                    ×
-                  </button>
+      <div className="space-y-2">
+        {selectedParishes.map(parishId => {
+          const parish = parishes.find(p => p.id === parishId);
+          if (!parish) return null;
+          
+          return (
+            <div
+              key={parishId}
+              className="group flex items-center justify-between p-2 rounded-md border bg-white"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                  <span className="text-blue-600 text-sm font-medium">
+                    {parish.name.charAt(0)}
+                  </span>
                 </div>
-              ) : null;
-            })}
-          </div>
-        </div>
-      )}
+                <div>
+                  <div className="text-sm font-medium">{parish.name}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedParishes(prev => prev.filter(id => id !== parishId));
+                  setFormData(prev => ({
+                    ...prev,
+                    parishes: prev.parishes.filter(id => id !== parishId)
+                  }));
+                }}
+                className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-100 rounded-full transition-opacity"
+              >
+                <X className="h-4 w-4 text-gray-500" />
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   )
 

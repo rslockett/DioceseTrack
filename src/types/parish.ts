@@ -20,4 +20,11 @@ export interface Parish {
   website?: string;
   address?: ParishAddress;
   additionalInfo?: string;
+  assignedClergy?: {
+    id: string;
+    name: string;
+    role: string;
+    type: string;
+    dateAssigned: string;
+  }[];
 } 

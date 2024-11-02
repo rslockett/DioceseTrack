@@ -6,6 +6,10 @@ export interface Deanery {
   deanName?: string;
   contactEmail?: string;
   contactPhone?: string;
-  parishes: string[]; // Array of parish IDs
+  parishes?: {
+    id: string;
+    name: string;
+    status: 'Active' | 'Inactive';
+  }[];
   additionalInfo?: string;
 } 

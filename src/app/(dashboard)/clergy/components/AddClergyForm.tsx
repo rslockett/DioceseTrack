@@ -218,7 +218,8 @@ export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddCle
       profileImage, // Preserve profile image
       children: showChildren ? children : [],
       spouse: showSpouse ? formData.spouse : null,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
+      assignmentType: assignmentType
     };
 
     // Save to localStorage directly to ensure persistence
@@ -848,7 +849,6 @@ export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddCle
                 }))}
                 className="w-full px-3 py-2 border rounded-lg"
                 placeholder="Enter assignment"
-                required
               />
             ) : (
               <div className="grid grid-cols-2 gap-2">

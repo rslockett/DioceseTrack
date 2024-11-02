@@ -94,6 +94,15 @@ const ParishCard = ({ parish, onEdit, onDelete }: ParishCardProps) => {
                   </div>
                 )}
               </div>
+              <div className="flex items-center text-sm text-gray-600">
+                <Building className="h-4 w-4 mr-2" />
+                <div className="flex flex-col">
+                  <span className="font-semibold">Deanery:</span>
+                  <span className="ml-2">
+                    {parish.deaneryName || 'No Deanery Assigned'}
+                  </span>
+                </div>
+              </div>
               {parish.email && (
                 <div className="flex items-center text-sm text-gray-600">
                   <Mail className="h-4 w-4 mr-2" />
@@ -114,10 +123,6 @@ const ParishCard = ({ parish, onEdit, onDelete }: ParishCardProps) => {
                   <span>{parish.address}</span>
                 </div>
               )}
-              <div className="flex items-center text-sm text-gray-600">
-                <Building className="h-4 w-4 mr-2" />
-                <span>Deanery: {getDeaneryName()}</span>
-              </div>
             </div>
           </div>
         </div>
@@ -143,79 +148,34 @@ const ParishesPage = () => {
     }
   }, []);
 
-  const handleSaveParish = (formData: Parish) => {
-    console.log('Saving parish with data:', formData);
+  const handleSaveParish = async (formData: Parish) => {
+    try {
+      // Process parish data
+      const processedData = {
+        ...formData,
+        id: formData.id || crypto.randomUUID(),
+      };
 
-    const processedData = {
-      ...formData,
-      id: formData.id || crypto.randomUUID(),
-    };
+      // Update parish list
+      const updatedParishList = editingParish
+        ? parishList.map(p => p.id === editingParish.id ? processedData : p)
+        : [...parishList, processedData];
 
-    // Update parishes list
-    const updatedParishes = editingParish
-      ? parishList.map(p => p.id === editingParish.id ? processedData : p)
-      : [...parishList, processedData];
-    
-    localStorage.setItem('parishes', JSON.stringify(updatedParishes));
+      // Save parish updates
+      localStorage.setItem('parishes', JSON.stringify(updatedParishList));
+      
+      // Sync deanery-parish relationships
+      syncDeaneryParishes();
 
-    // Update clergy assignments
-    const clergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-    const updatedClergy = clergy.map(person => {
-      // If this clergy is assigned to this parish
-      if (person.currentAssignment === processedData.name) {
-        return {
-          ...person,
-          deaneryId: processedData.deaneryId,
-          deaneryName: processedData.deaneryName
-        };
-      }
-      return person;
-    });
-    localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+      // Update state
+      setParishList(updatedParishList);
+      setShowAddForm(false);
+      setEditingParish(null);
 
-    // Update related deanery
-    if (formData.deaneryId) {
-      const deaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
-      const updatedDeaneries = deaneries.map(deanery => {
-        if (deanery.id === formData.deaneryId) {
-          // Add this parish to the deanery's parish list if not already there
-          const parishes = new Set(deanery.parishes || []);
-          parishes.add(processedData.id);
-          return {
-            ...deanery,
-            parishes: Array.from(parishes)
-          };
-        }
-        // Remove this parish from any other deanery that might have it
-        if (deanery.parishes?.includes(processedData.id) && deanery.id !== formData.deaneryId) {
-          return {
-            ...deanery,
-            parishes: deanery.parishes.filter(id => id !== processedData.id)
-          };
-        }
-        return deanery;
-      });
-      localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
+    } catch (error) {
+      console.error('Error saving parish:', error);
+      alert('There was an error saving the changes. Please try again.');
     }
-
-    // If deanery was removed, clean up old deanery reference
-    if (editingParish?.deaneryId && !formData.deaneryId) {
-      const deaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
-      const updatedDeaneries = deaneries.map(deanery => {
-        if (deanery.id === editingParish.deaneryId) {
-          return {
-            ...deanery,
-            parishes: (deanery.parishes || []).filter(id => id !== processedData.id)
-          };
-        }
-        return deanery;
-      });
-      localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
-    }
-
-    setParishList(updatedParishes);
-    setShowAddForm(false);
-    setEditingParish(null);
   };
 
   const handleDelete = (parishId: string) => {
@@ -358,6 +318,44 @@ const ParishesPage = () => {
       )}
     </div>
   );
+};
+
+// Add this function in the same file as handleSaveParish
+const syncDeaneryParishes = () => {
+  try {
+    // Get current data
+    const deaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
+    const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
+
+    console.log('1. Syncing deaneries with parishes');
+    console.log('Current deaneries:', deaneries);
+    console.log('Current parishes:', parishes);
+
+    // Update deaneries with their parishes
+    const updatedDeaneries = deaneries.map(deanery => {
+      const deaneryParishes = parishes
+        .filter(parish => parish.deaneryId === deanery.id)
+        .map(parish => ({
+          id: parish.id,
+          name: parish.name,
+          status: parish.status
+        }));
+
+      return {
+        ...deanery,
+        parishes: deaneryParishes
+      };
+    });
+
+    console.log('2. Updated deaneries:', updatedDeaneries);
+
+    // Save updated deaneries
+    localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
+    return updatedDeaneries;
+  } catch (error) {
+    console.error('Error syncing deanery parishes:', error);
+    return null;
+  }
 };
 
 export default ParishesPage;
