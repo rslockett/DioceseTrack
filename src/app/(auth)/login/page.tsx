@@ -64,7 +64,18 @@ const Page: React.FC<PageProps> = () => {
     if (window.location.hostname.includes('replit')) {
       const script = document.createElement('script')
       script.src = "https://replit.com/public/js/repl-auth-v2.js"
-      script.onload = () => console.log('Replit auth script loaded')
+      script.onload = () => {
+        // Check if user is already logged in
+        fetch('/__replauthuser')
+          .then(response => response.json())
+          .then(user => {
+            if (user) {
+              console.log('User already logged in:', user)
+              router.push('/dashboard')
+            }
+          })
+          .catch(error => console.error('Auth check error:', error))
+      }
       document.head.appendChild(script)
     }
   }, [])
@@ -72,12 +83,26 @@ const Page: React.FC<PageProps> = () => {
   // Simple login handler
   const handleReplitLogin = async () => {
     try {
-      // @ts-ignore
-      await window.LoginWithReplit()
+      // Check if already logged in first
       const response = await fetch('/__replauthuser')
       const user = await response.json()
+      
       if (user) {
-        console.log('Logged in user:', user)
+        console.log('User already logged in:', user)
+        router.push('/dashboard')
+        return
+      }
+
+      // If not logged in, try login
+      // @ts-ignore
+      await window.LoginWithReplit()
+      
+      // Check again after login attempt
+      const afterLoginResponse = await fetch('/__replauthuser')
+      const afterLoginUser = await afterLoginResponse.json()
+      
+      if (afterLoginUser) {
+        console.log('Login successful:', afterLoginUser)
         router.push('/dashboard')
       }
     } catch (error) {
