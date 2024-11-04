@@ -109,16 +109,20 @@ const Page: React.FC<PageProps> = () => {
   // Add Replit login handler
   const handleReplitLogin = async () => {
     try {
+      console.log('Starting Replit login...')
       // @ts-ignore
       await window.LoginWithReplit()
+      console.log('LoginWithReplit completed')
+      
       const response = await fetch('/__replauthuser')
       const replitUser = await response.json()
+      console.log('Replit user data:', replitUser)
       
       if (replitUser) {
-        // After Replit verification, set email to trigger regular login
+        console.log('Setting credentials...')
         setEmail('admin@diocesetrack.com')
         setPassword('admin123')
-        // Trigger regular login flow
+        console.log('Triggering login...')
         handleSubmit(new Event('submit') as any)
       }
     } catch (error) {
