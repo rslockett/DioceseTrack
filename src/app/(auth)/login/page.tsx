@@ -120,16 +120,11 @@ const Page: React.FC<PageProps> = () => {
       
       if (replitUser) {
         console.log('Setting credentials...')
-        await new Promise<void>((resolve) => {
-          setEmail('admin@diocesetrack.com')
-          setPassword('admin123')
-          resolve()
-        })
+        setEmail('admin@diocesetrack.com')
+        setPassword('admin123')
         
-        console.log('Triggering login...')
-        const event = new Event('submit') as any
-        event.preventDefault = () => {}
-        handleSubmit(event)
+        // Call handleSuccessfulLogin directly instead of handleSubmit
+        handleSuccessfulLogin(DIOCESE_ADMIN)
       }
     } catch (error) {
       console.error('Replit login error:', error)
