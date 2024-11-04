@@ -78,23 +78,34 @@ const Page: React.FC<PageProps> = () => {
     }
   }, [])
 
-  // Add Replit auth handler with proper user data fetching
+  // Listen for auth message from Replit
+  useEffect(() => {
+    const handleAuth = async (e: MessageEvent) => {
+      if (e.data.type === 'replitAuthenticated') {
+        console.log('Replit auth completed')
+        try {
+          const response = await fetch('/__replauthuser')
+          const userData = await response.json()
+          console.log('Replit user data:', userData)
+          
+          if (userData) {
+            router.push('/dashboard')
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error)
+        }
+      }
+    }
+
+    window.addEventListener('message', handleAuth)
+    return () => window.removeEventListener('message', handleAuth)
+  }, [router])
+
   const handleReplitLogin = async () => {
     try {
       console.log('Starting Replit login...')
       // @ts-ignore - Replit auth function
       await window.LoginWithReplit()
-      
-      // Add immediate check after login
-      console.log('Checking Replit auth status...')
-      const response = await fetch('/__replauthuser')
-      const userData = await response.json()
-      console.log('Replit user data:', userData)
-
-      if (userData) {
-        // User is authenticated, redirect to dashboard
-        router.push('/dashboard')
-      }
     } catch (error) {
       console.error('Replit login error:', error)
       setError('Failed to login with Replit')
