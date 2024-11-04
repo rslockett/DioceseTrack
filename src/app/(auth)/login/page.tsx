@@ -78,37 +78,32 @@ const Page: React.FC<PageProps> = () => {
 
   // Simple login handler
   const handleReplitLogin = async () => {
-    console.log('Login button clicked')
     try {
       // @ts-ignore
       await window.LoginWithReplit()
-      console.log('LoginWithReplit called')
-      
       const response = await fetch('/__replauthuser')
       const replitUser = await response.json()
-      console.log('User data:', replitUser)
       
       if (replitUser) {
-        // Create a user object that matches your app's structure
-        const userData = {
-          id: `replit-${replitUser.id}`,
-          firstName: replitUser.name,
-          lastName: '',
-          email: `${replitUser.name}@replit.user`,
-          role: 'user',
-          status: 'active',
-          dateCreated: new Date().toISOString()
-        }
+        // Check if user exists in our system
+        const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]')
+        const userMatch = existingUsers.find(user => 
+          user.email === replitUser.name + '@replit.user' || 
+          user.email === replitUser.name + '@replit.com'
+        )
 
-        // Store the user data
-        localStorage.setItem('currentUser', JSON.stringify(userData))
-        console.log('Stored user data, redirecting...')
-        
-        // Redirect to dashboard
-        router.push('/dashboard')
+        if (userMatch) {
+          // User exists, log them in
+          localStorage.setItem('currentUser', JSON.stringify(userMatch))
+          router.push('/dashboard')
+        } else {
+          // User needs to be added by admin
+          setError('Your Replit account is verified, but you need to be added as a user by an administrator.')
+        }
       }
     } catch (error) {
       console.error('Login error:', error)
+      setError('Failed to login with Replit')
     }
   }
 
