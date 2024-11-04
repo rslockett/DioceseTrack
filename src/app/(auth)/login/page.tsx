@@ -61,20 +61,16 @@ const Page: React.FC<PageProps> = () => {
 
   // Load Replit auth script
   useEffect(() => {
-    if (window.location.hostname.includes('replit')) {
+    console.log('Checking environment...')
+    const hostname = window.location.hostname
+    console.log('Hostname:', hostname)
+
+    if (hostname.includes('replit')) {
+      console.log('Loading Replit auth script...')
       const script = document.createElement('script')
       script.src = "https://replit.com/public/js/repl-auth-v2.js"
       script.onload = () => {
-        // Check if user is already logged in
-        fetch('/__replauthuser')
-          .then(response => response.json())
-          .then(user => {
-            if (user) {
-              console.log('User already logged in:', user)
-              router.push('/dashboard')
-            }
-          })
-          .catch(error => console.error('Auth check error:', error))
+        console.log('Replit auth script loaded')
       }
       document.head.appendChild(script)
     }
@@ -82,27 +78,17 @@ const Page: React.FC<PageProps> = () => {
 
   // Simple login handler
   const handleReplitLogin = async () => {
+    console.log('Login button clicked')
     try {
-      // Check if already logged in first
-      const response = await fetch('/__replauthuser')
-      const user = await response.json()
-      
-      if (user) {
-        console.log('User already logged in:', user)
-        router.push('/dashboard')
-        return
-      }
-
-      // If not logged in, try login
       // @ts-ignore
       await window.LoginWithReplit()
+      console.log('LoginWithReplit called')
       
-      // Check again after login attempt
-      const afterLoginResponse = await fetch('/__replauthuser')
-      const afterLoginUser = await afterLoginResponse.json()
+      const response = await fetch('/__replauthuser')
+      const user = await response.json()
+      console.log('User data:', user)
       
-      if (afterLoginUser) {
-        console.log('Login successful:', afterLoginUser)
+      if (user) {
         router.push('/dashboard')
       }
     } catch (error) {
