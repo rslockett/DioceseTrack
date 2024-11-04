@@ -13,12 +13,9 @@ import {
   Building,
   FileText,
   Menu,
-  Moon,
-  Sun,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useTheme } from '@/components/ThemeProvider'
 
 // Define menu items with role access
 const ALL_MENU_ITEMS = [
@@ -81,7 +78,6 @@ export default function DashboardLayout({
   const pathname = usePathname()
   const [user, setUser] = useState<any>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const { theme, toggleTheme } = useTheme()
 
   useEffect(() => {
     try {
@@ -129,32 +125,24 @@ export default function DashboardLayout({
   const menuItems = ALL_MENU_ITEMS.filter(item => item.roles.includes(user.role))
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-white dark:bg-gray-900">
+    <div className="flex flex-col md:flex-row min-h-screen bg-white">
       {/* Mobile Menu Button */}
-      <div className="md:hidden p-4 border-b dark:border-gray-800">
+      <div className="md:hidden p-4 border-b">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-bold dark:text-white">Diocese Track</h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleTheme}
-              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-            >
-              {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-            </button>
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 text-gray-600 dark:text-gray-400"
-            >
-              <Menu className="h-6 w-6" />
-            </button>
-          </div>
+          <h2 className="text-xl font-bold">Diocese Track</h2>
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 text-gray-600"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
         </div>
       </div>
 
       {/* Sidebar */}
       <div className={`
         ${isMobileMenuOpen ? 'block' : 'hidden'} 
-        md:block w-full md:w-64 bg-white dark:bg-gray-900 border-r dark:border-gray-800
+        md:block w-full md:w-64 bg-white border-r
       `}>
         <div className="flex flex-col h-full">
           <div className="hidden md:block p-4">

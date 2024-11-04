@@ -139,7 +139,7 @@ export function AddDeaneryForm({ initialData, onClose, onSave, onDelete }: AddDe
   const handleDeanSelect = (selectedClergy: any) => {
     setFormData({
       ...formData,
-      deanId: selectedClergy.id,
+      dean: selectedClergy.id,
       deanName: selectedClergy.displayName
     })
     setSearchQuery('')

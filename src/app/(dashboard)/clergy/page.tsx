@@ -338,25 +338,29 @@ const ClergyDirectory = () => {
       if (processedData.currentAssignment) {
         const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
         const updatedParishes = parishes.map(parish => {
+          // Remove clergy from previous assignments
+          if (parish.assignedClergy?.some(c => c.id === processedData.id)) {
+            return {
+              ...parish,
+              assignedClergy: parish.assignedClergy.filter(c => c.id !== processedData.id)
+            };
+          }
+          
+          // Add to new parish
           if (parish.name === processedData.currentAssignment) {
-            // Add clergy to parish's assignedClergy array if not already there
             const existingAssignedClergy = parish.assignedClergy || [];
-            const clergyExists = existingAssignedClergy.some(c => c.id === processedData.id);
-            
-            if (!clergyExists) {
-              return {
-                ...parish,
-                assignedClergy: [
-                  ...existingAssignedClergy,
-                  {
-                    id: processedData.id,
-                    name: processedData.name,
-                    type: processedData.type,
-                    role: processedData.role
-                  }
-                ]
-              };
-            }
+            return {
+              ...parish,
+              assignedClergy: [
+                ...existingAssignedClergy,
+                {
+                  id: processedData.id,
+                  name: processedData.name,
+                  type: processedData.type,
+                  role: processedData.role
+                }
+              ]
+            };
           }
           return parish;
         });
@@ -391,6 +395,14 @@ const ClergyDirectory = () => {
       // Remove clergy record
       const updatedClergy = clergyList.filter(c => c.id !== clergyId);
       localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+      
+      // Remove clergy from parish assignments
+      const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
+      const updatedParishes = parishes.map(parish => ({
+        ...parish,
+        assignedClergy: (parish.assignedClergy || []).filter(c => c.id !== clergyId)
+      }));
+      localStorage.setItem('parishes', JSON.stringify(updatedParishes));
       
       // Remove associated user and credentials
       const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]');

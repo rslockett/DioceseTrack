@@ -37,10 +37,14 @@ const DeaneryCard = ({ deanery, onEdit, onDelete }: DeaneryCardProps) => {
       const deaneryParishes = allParishes.filter(p => p.deaneryId === deanery.id);
       setAssignedParishes(deaneryParishes);
 
-      // Get dean info
+      // Get dean info - check both dean and deanId fields
       const allClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-      const dean = allClergy.find(c => c.id === deanery.deanId || 
-        (c.type === 'Priest' && c.currentAssignment === deaneryParishes[0]?.name));
+      const dean = allClergy.find(c => 
+        // Check all possible dean ID fields
+        c.id === deanery.dean || 
+        c.id === deanery.deanId || 
+        (c.deaneryId === deanery.id && c.role?.toLowerCase().includes('dean'))
+      );
 
       if (dean) {
         const title = getTitleAbbreviation(dean.type);
@@ -153,6 +157,11 @@ const DeaneriesPage = () => {
 
   const handleSaveDeanery = async (deaneryData: Deanery) => {
     try {
+      // Ensure dean property is set correctly
+      if (deaneryData.deanId) {
+        deaneryData.dean = deaneryData.deanId;
+      }
+
       const allDeaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
       const updatedDeaneries = allDeaneries.map(d => 
         d.id === deaneryData.id ? deaneryData : d
@@ -163,28 +172,24 @@ const DeaneriesPage = () => {
         updatedDeaneries.push(deaneryData);
       }
 
-      // Update parishes with deanery info
-      const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
-      const updatedParishes = parishes.map(parish => {
-        if (deaneryData.parishes?.some(p => p.id === parish.id)) {
-          return {
-            ...parish,
-            deaneryId: deaneryData.id,
-            deaneryName: deaneryData.name
-          };
-        }
-        return parish;
-      });
-
-      // Update clergy with dean role
+      // Update clergy with deanery info
       const clergy = JSON.parse(localStorage.getItem('clergy') || '[]');
       const updatedClergy = clergy.map(person => {
-        if (person.id === deaneryData.dean) {
+        if (person.id === deaneryData.dean || person.id === deaneryData.deanId) {
           return {
             ...person,
-            role: person.role.includes('Dean') ? person.role : `Dean ${person.role}`.trim(),
             deaneryId: deaneryData.id,
-            deaneryName: deaneryData.name
+            deaneryName: deaneryData.name,
+            role: person.role?.includes('Dean') ? person.role : `Dean ${person.role || ''}`
+          };
+        }
+        // Remove dean role if no longer dean of this deanery
+        if (person.deaneryId === deaneryData.id && person.id !== deaneryData.dean) {
+          return {
+            ...person,
+            deaneryId: undefined,
+            deaneryName: undefined,
+            role: person.role?.replace(/\bDean\b/g, '').trim()
           };
         }
         return person;
@@ -192,8 +197,8 @@ const DeaneriesPage = () => {
 
       // Save all updates
       localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
-      localStorage.setItem('parishes', JSON.stringify(updatedParishes));
       localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+      localStorage.setItem('parishes', JSON.stringify(updatedParishes));
 
       setDeaneryList(updatedDeaneries);
       setShowAddForm(false);
@@ -264,23 +269,6 @@ const DeaneriesPage = () => {
       return parish;
     });
     localStorage.setItem('parishes', JSON.stringify(updatedParishes));
-
-    // Sync clergy (dean)
-    if (deanery.dean) {
-      const clergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-      const updatedClergy = clergy.map(person => {
-        if (person.id === deanery.dean) {
-          return {
-            ...person,
-            role: person.role.includes('Dean') ? person.role : `Dean ${person.role}`.trim(),
-            deaneryId: deanery.id,
-            deaneryName: deanery.name
-          };
-        }
-        return person;
-      });
-      localStorage.setItem('clergy', JSON.stringify(updatedClergy));
-    }
   };
 
   // Filter deaneries based on search term
