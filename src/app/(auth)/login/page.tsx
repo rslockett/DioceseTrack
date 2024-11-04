@@ -86,7 +86,12 @@ const Page: React.FC<PageProps> = () => {
       
       // Fetch Replit user data
       const response = await fetch('/__replauthuser')
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data')
+      }
+      
       const replitUserData = await response.json()
+      console.log('Replit user data:', replitUserData)
       
       // Map Replit user to your user structure
       const userData = {
