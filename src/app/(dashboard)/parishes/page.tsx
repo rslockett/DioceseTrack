@@ -17,13 +17,31 @@ const ParishCard = ({ parish, onEdit, onDelete }: ParishCardProps) => {
   const [assignedClergy, setAssignedClergy] = useState([]);
 
   useEffect(() => {
-    const allClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-    const clergyDetails = allClergy.filter(c => 
-      c.currentAssignment === parish.name && 
-      c.deaneryId === parish.deaneryId
-    );
-    setAssignedClergy(clergyDetails);
-  }, [parish.name, parish.deaneryId]);
+    try {
+      console.log('=== PARISH CARD RENDER ===');
+      console.log('Parish Data:', parish);
+      console.log('Assigned Clergy from Parish:', parish.assignedClergy);
+      
+      const allClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+      console.log('All Available Clergy:', allClergy);
+      
+      if (parish.assignedClergy && Array.isArray(parish.assignedClergy)) {
+        const clergyDetails = allClergy.filter(c => 
+          parish.assignedClergy.some(ac => ac.id === c.id)
+        ).map(c => ({
+          id: c.id,
+          name: c.name,
+          type: c.type,
+          role: c.role
+        }));
+        console.log('Matched Clergy:', clergyDetails);
+        setAssignedClergy(clergyDetails);
+      }
+    } catch (error) {
+      console.error('Error loading clergy:', error);
+      setAssignedClergy([]);
+    }
+  }, [parish.assignedClergy]);
 
   const getDeaneryName = () => {
     try {
@@ -150,6 +168,8 @@ const ParishesPage = () => {
 
   const handleSaveParish = async (formData: Parish) => {
     try {
+      console.log('Saving parish with data:', formData);
+      
       // Process parish data
       const processedData = {
         ...formData,
@@ -161,8 +181,22 @@ const ParishesPage = () => {
         ? parishList.map(p => p.id === editingParish.id ? processedData : p)
         : [...parishList, processedData];
 
-      // Save parish updates
+      // Update clergy assignments
+      const clergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+      const updatedClergy = clergy.map(person => {
+        if (formData.assignedClergy?.some(ac => ac.id === person.id)) {
+          return {
+            ...person,
+            currentAssignment: formData.name,
+            deaneryId: formData.deaneryId
+          };
+        }
+        return person;
+      });
+
+      // Save all updates
       localStorage.setItem('parishes', JSON.stringify(updatedParishList));
+      localStorage.setItem('clergy', JSON.stringify(updatedClergy));
       
       // Sync deanery-parish relationships
       syncDeaneryParishes();

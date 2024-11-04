@@ -57,14 +57,14 @@ export default function UserCreateForm({ onSuccess }: { onSuccess?: () => void }
         email: formData.email,
         role: 'user',
         status: 'active',
-        dateCreated: new Date(),
+        dateCreated: new Date().toISOString(),
         clergyId: userId
       }
 
       // Create clergy record
       const newClergy = {
         id: userId,
-        name: `${formData.name}`,
+        name: formData.name,
         type: formData.clergyType,
         status: 'Active',
         email: formData.email,

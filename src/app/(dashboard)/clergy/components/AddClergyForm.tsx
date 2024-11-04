@@ -102,6 +102,13 @@ const validatePhone = (phone: string) => {
     : 'Please enter a valid phone number (e.g., (123) 456-7890)';
 };
 
+const CLERGY_ROLES = [
+  'Pastor',
+  'Assistant Pastor',
+  'Dean',
+  'Youth Director'
+] as const;
+
 export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddClergyFormProps) {
   console.log('Form initialData:', initialData);
 
@@ -572,8 +579,10 @@ export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddCle
                   required
                 >
                   <option value="">Select Role</option>
-                  {roles.map(role => (
-                    <option key={role} value={role}>{role}</option>
+                  {CLERGY_ROLES.map(role => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
                   ))}
                 </select>
                 

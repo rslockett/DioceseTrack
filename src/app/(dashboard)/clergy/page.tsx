@@ -297,66 +297,77 @@ const ClergyDirectory = () => {
   };
 
   const handleSaveClergy = async (formData: Clergy) => {
-    console.log('1. Starting save process with formData:', formData);
-
-    // Validate required fields
-    if (!formData.name || !formData.type) {
-      console.log('2. Validation failed');
-      alert('Name and Clergy Type are required fields');
-      return;
-    }
-
-    const processedData = {
-      ...formData,
-      id: formData.id || crypto.randomUUID(),
-    };
-
     try {
+      console.log('1. Starting clergy save with:', formData);
+      
+      const processedData = {
+        ...formData,
+        id: formData.id || crypto.randomUUID(),
+        dateCreated: new Date().toISOString(),
+        lastUpdated: new Date().toISOString()
+      };
+      
       // Update clergy list
       const updatedClergyList = editingClergy
         ? clergyList.map(c => c.id === editingClergy.id ? processedData : c)
         : [...clergyList, processedData];
 
-      // Handle parish assignment
-      if (formData.currentAssignment && formData.assignmentType === 'Parish') {
-        console.log('5. Handling parish assignment:', formData.currentAssignment);
+      // If this is a new clergy (not editing), create corresponding user auth record
+      if (!editingClergy) {
+        console.log('2. Creating new user auth record');
+        const nameParts = processedData.name.split(' ');
+        const newUser = {
+          id: processedData.id,
+          firstName: nameParts[0],
+          lastName: nameParts.slice(1).join(' '),
+          email: processedData.email,
+          role: 'user',
+          status: 'active',
+          dateCreated: new Date().toISOString(),
+          clergyId: processedData.id
+        };
+
+        // Get existing users and add new one
+        const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]');
+        const updatedUsers = [...existingUsers, newUser];
+        console.log('3. Saving updated users:', updatedUsers);
+        localStorage.setItem('userAuth', JSON.stringify(updatedUsers));
+      }
+
+      // Update parish assignment if changed
+      if (processedData.currentAssignment) {
         const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
         const updatedParishes = parishes.map(parish => {
-          if (parish.name === formData.currentAssignment) {
-            // Remove clergy from previous assignments if any
-            const otherParishes = parishes.filter(p => p.name !== formData.currentAssignment);
-            otherParishes.forEach(p => {
-              if (p.assignedClergy) {
-                p.assignedClergy = p.assignedClergy.filter(c => c.id !== processedData.id);
-              }
-            });
-
-            // Add or update clergy in current parish
-            const clergyAssignment = {
-              id: processedData.id,
-              name: processedData.name,
-              role: processedData.role || 'Pastor',
-              type: processedData.type,
-              dateAssigned: new Date().toISOString()
-            };
-
-            return {
-              ...parish,
-              assignedClergy: parish.assignedClergy 
-                ? [...parish.assignedClergy.filter(c => c.id !== processedData.id), clergyAssignment]
-                : [clergyAssignment]
-            };
+          if (parish.name === processedData.currentAssignment) {
+            // Add clergy to parish's assignedClergy array if not already there
+            const existingAssignedClergy = parish.assignedClergy || [];
+            const clergyExists = existingAssignedClergy.some(c => c.id === processedData.id);
+            
+            if (!clergyExists) {
+              return {
+                ...parish,
+                assignedClergy: [
+                  ...existingAssignedClergy,
+                  {
+                    id: processedData.id,
+                    name: processedData.name,
+                    type: processedData.type,
+                    role: processedData.role
+                  }
+                ]
+              };
+            }
           }
           return parish;
         });
-
+        
         localStorage.setItem('parishes', JSON.stringify(updatedParishes));
       }
 
       // Save clergy updates
       localStorage.setItem('clergy', JSON.stringify(updatedClergyList));
+      console.log('5. Save completed');
       
-      // Update state
       setClergyList(updatedClergyList);
       setShowAddForm(false);
       setEditingClergy(null);
@@ -375,38 +386,26 @@ const ClergyDirectory = () => {
     hasValidName(clergy) && clergy.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleDelete = (clergyId) => {
-    console.log('1. Starting delete process for clergyId:', clergyId);
-    
+  const handleDelete = (clergyId: string) => {
     try {
-      // Get current clergy and users from localStorage
-      const existingClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-      const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]');
-      console.log('2. Current users:', existingUsers);
-      
-      // Filter out the deleted clergy
-      const updatedClergy = existingClergy.filter(clergy => clergy.id !== clergyId);
-      
-      // Filter out the associated user
-      const updatedUsers = existingUsers.filter(user => user.clergyId !== clergyId);
-      console.log('3. Updated users list:', updatedUsers);
-      
-      // Update localStorage
+      // Remove clergy record
+      const updatedClergy = clergyList.filter(c => c.id !== clergyId);
       localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+      
+      // Remove associated user and credentials
+      const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]');
+      const existingCredentials = JSON.parse(localStorage.getItem('loginCredentials') || '[]');
+      
+      const updatedUsers = existingUsers.filter(u => u.id !== clergyId);
+      const updatedCredentials = existingCredentials.filter(c => c.userId !== clergyId);
+      
       localStorage.setItem('userAuth', JSON.stringify(updatedUsers));
-      console.log('4. Storage updated successfully');
+      localStorage.setItem('loginCredentials', JSON.stringify(updatedCredentials));
       
-      // Update state
       setClergyList(updatedClergy);
-      
-      // Close any open forms
-      setShowAddForm(false);
-      setEditingClergy(null);
-      
-      console.log('5. Delete process completed successfully');
     } catch (error) {
-      console.error('Error during delete process:', error);
-      alert('There was an error deleting the record. Please try again.');
+      console.error('Error deleting clergy:', error);
+      alert('Error deleting clergy. Please try again.');
     }
   };
 

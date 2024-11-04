@@ -497,35 +497,34 @@ const SettingsPage = () => {
   }, [users]); // Add users as dependency to see when it changes
 
   // Add this function to handle user deletion
-  const handleDeleteUser = (userId: string, email: string) => {
-    if (email === 'admin@diocesetrack.com') {
-      alert('Cannot delete admin account');
-      return;
-    }
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      console.log('=== DELETE DEBUG ===');
+      console.log('1. UserId to delete:', userId);
+      
+      const userToDelete = users.find(u => u.id === userId);
+      console.log('2. User record found:', userToDelete);
+      
+      // Remove user auth record
+      const updatedUsers = users.filter(u => u.id !== userId);
+      localStorage.setItem('userAuth', JSON.stringify(updatedUsers));
 
-    const confirmDelete = window.confirm('Are you sure you want to delete this user?');
-    if (confirmDelete) {
-      try {
-        // Remove from userAuth
-        const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]');
-        const updatedUsers = existingUsers.filter(user => user.id !== userId);
-        localStorage.setItem('userAuth', JSON.stringify(updatedUsers));
-        
-        // Remove from loginCredentials
-        const existingCredentials = JSON.parse(localStorage.getItem('loginCredentials') || '[]');
-        const updatedCredentials = existingCredentials.filter(cred => cred.email !== email);
-        localStorage.setItem('loginCredentials', JSON.stringify(updatedCredentials));
-        
-        // DON'T remove from clergy - preserve clergy data
-        
-        // Update state
-        setUsers(updatedUsers);
-        setLoginCredentials(updatedCredentials);
-        
-        alert('User deleted successfully');
-      } catch (error) {
-        console.error('Error deleting user:', error);
-      }
+      // Remove clergy record
+      const existingClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+      console.log('4. Before filter - clergy records:', existingClergy);
+      const updatedClergy = existingClergy.filter(c => c.id !== userId);
+      console.log('5. After filter - clergy records:', updatedClergy);
+      localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+      console.log('6. After localStorage save - clergy records:', JSON.parse(localStorage.getItem('clergy')));
+      
+      // Update clergy state
+      setClergyData(updatedClergy);
+      console.log('7. After setClergyData');
+
+      setUsers(updatedUsers);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Error deleting user. Please try again.');
     }
   };
 
@@ -599,25 +598,6 @@ const SettingsPage = () => {
     console.log('Settings page mounting, current clergy data:', 
       JSON.parse(localStorage.getItem('clergy') || '[]')
     );
-  }, []);
-
-  useEffect(() => {
-    // Preserve existing clergy data
-    const existingClergy = localStorage.getItem('clergy');
-    
-    // Store it in a temporary storage
-    if (existingClergy) {
-      sessionStorage.setItem('tempClergy', existingClergy);
-    }
-
-    // When component unmounts, restore the clergy data
-    return () => {
-      const preservedClergy = sessionStorage.getItem('tempClergy');
-      if (preservedClergy) {
-        localStorage.setItem('clergy', preservedClergy);
-        sessionStorage.removeItem('tempClergy');
-      }
-    };
   }, []);
 
   useEffect(() => {
@@ -1018,7 +998,7 @@ const SettingsPage = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteUser(user.id, user.email)}
+                        onClick={() => handleDeleteUser(user.id)}
                         className="text-red-600 hover:text-red-700"
                       >
                         <Trash className="h-4 w-4" />

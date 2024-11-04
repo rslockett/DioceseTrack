@@ -106,31 +106,19 @@ export function AddParishForm({ initialData, onClose, onSave, onDelete }: AddPar
       const storedClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
       console.log('Loading clergy data:', storedClergy);
       
-      if (initialData?.clergyId) {
-        console.log('Parish has clergyId:', initialData.clergyId);
-        const assignedClergy = storedClergy.find(c => c.id === initialData.clergyId);
-        console.log('Found assigned clergy:', assignedClergy);
-      }
-
+      // Format clergy data
       const formattedClergy = storedClergy.map(person => ({
         id: person.id,
         name: person.name || `${person.firstName} ${person.lastName}`.trim(),
-        type: person.type
+        type: person.type,
+        role: person.role
       }));
-      console.log('Formatted clergy data:', formattedClergy);
+      
       setClergy(formattedClergy);
-    } catch (error) {
-      console.error('Error loading clergy data:', error);
-    }
-  }, [initialData]);
 
-  useEffect(() => {
-    try {
-      const storedClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-      setClergy(storedClergy);
-
+      // Set initial assigned clergy if editing
       if (initialData?.assignedClergy) {
-        console.log('Initial assigned clergy:', initialData.assignedClergy);
+        console.log('Setting initial assigned clergy:', initialData.assignedClergy);
         setFormData(prev => ({
           ...prev,
           assignedClergy: initialData.assignedClergy.map(c => c.id)
@@ -373,31 +361,29 @@ export function AddParishForm({ initialData, onClose, onSave, onDelete }: AddPar
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.deaneryId) {
-      alert('Please select a deanery');
-      return;
-    }
+    console.log('=== PARISH FORM SUBMISSION ===');
+    console.log('Form Data:', formData);
+    console.log('Assigned Clergy IDs:', formData.assignedClergy);
+    console.log('Available Clergy:', clergy);
 
-    const assignedClergyDetails = formData.assignedClergy
-      .map(id => {
-        const clergyMember = clergy.find(c => c.id === id);
-        return clergyMember ? {
-          id: clergyMember.id,
-          name: `${clergyMember.type} ${clergyMember.name}`,
-          role: clergyMember.role
-        } : null;
-      })
-      .filter(Boolean);
-
-    const newParish = {
+    // Create the parish object
+    const parishData = {
       ...formData,
       id: formData.id || crypto.randomUUID(),
-      clergyId: assignedClergyDetails[0]?.id || '', // Primary clergy
-      clergyName: assignedClergyDetails[0]?.name || '', // Primary clergy name
-      assignedClergy: assignedClergyDetails // All assigned clergy
+      // Make sure we're saving the full clergy objects, not just IDs
+      assignedClergy: formData.assignedClergy.map(clergyId => {
+        const clergyMember = clergy.find(c => c.id === clergyId);
+        return clergyMember ? {
+          id: clergyMember.id,
+          name: clergyMember.name,
+          type: clergyMember.type,
+          role: clergyMember.role
+        } : null;
+      }).filter(Boolean)
     };
 
-    onSave(newParish);
+    console.log('Final Parish Data:', parishData);
+    onSave(parishData);
   };
 
   return (

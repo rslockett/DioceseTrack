@@ -50,40 +50,26 @@ export function AddDeaneryForm({ initialData, onClose, onSave, onDelete }: AddDe
   // Load clergy data when component mounts
   useEffect(() => {
     try {
-      const storedParishes = JSON.parse(localStorage.getItem('parishes') || '[]')
+      const storedClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+      console.log('Loading all clergy:', storedClergy);
       
-      // Extract all clergy from all parishes
-      const allClergy = storedParishes.reduce((acc: any[], parish: any) => {
-        if (parish.assignedClergy && Array.isArray(parish.assignedClergy)) {
-          parish.assignedClergy.forEach((clergy: any) => {
-            // Only add if not already in the array and is a Dean
-            if (!acc.some(c => c.id === clergy.id) && clergy.role === 'Dean') {
-              // Use the same preview format as AddClergyForm
-              const [title, ...nameParts] = clergy.name.split(' ')
-              const name = nameParts.join(' ')
-              const titleAbbrev = title === 'Priest' ? 'Fr.' : 
-                                title === 'Deacon' ? 'Dcn.' : 
-                                title === 'Bishop' ? 'Bp.' : 
-                                title
-              
-              acc.push({
-                ...clergy,
-                displayName: `${titleAbbrev} ${name}`.trim()
-              })
-            }
-          })
-        }
-        return acc
-      }, [])
+      // Filter for clergy with role "Dean"
+      const deanClergy = storedClergy
+        .filter(person => person.role === 'Dean')
+        .map(person => ({
+          id: person.id,
+          name: person.name || `${person.firstName} ${person.lastName}`.trim(),
+          displayName: `${getTitleAbbreviation(person.type)} ${person.name || `${person.firstName} ${person.lastName}`.trim()}`,
+          role: person.role
+        }));
       
-      setClergy(allClergy)
-      setParishes(storedParishes)
+      console.log('Available deans:', deanClergy);
+      setClergy(deanClergy);
     } catch (error) {
-      console.error('Error loading data:', error)
-      setClergy([])
-      setParishes([])
+      console.error('Error loading clergy data:', error);
+      setClergy([]);
     }
-  }, [initialData])
+  }, []);
 
   // Add this useEffect to load assigned parishes
   useEffect(() => {
