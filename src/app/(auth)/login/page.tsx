@@ -181,7 +181,11 @@ const Page: React.FC<PageProps> = () => {
 
   return (
     <div className="space-y-8 p-8 bg-white rounded-lg shadow">
-      <div className="text-sm text-gray-500">Running in: {isReplitEnvironment ? 'Replit' : 'Local'}</div>
+      <div className="text-sm text-gray-500">
+        Running in: {isReplitEnvironment ? 'Replit' : 'Local'}
+        <br />
+        Hostname: {window.location.hostname}
+      </div>
 
       <div>
         <h2 className="text-center text-3xl font-bold text-gray-900">
