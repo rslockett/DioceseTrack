@@ -81,37 +81,20 @@ const Page: React.FC<PageProps> = () => {
   // Add Replit auth handler with proper user data fetching
   const handleReplitLogin = async () => {
     try {
+      console.log('Starting Replit login...')
       // @ts-ignore - Replit auth function
       await window.LoginWithReplit()
       
-      // Fetch Replit user data
+      // Add immediate check after login
+      console.log('Checking Replit auth status...')
       const response = await fetch('/__replauthuser')
-      if (!response.ok) {
-        throw new Error('Failed to fetch user data')
-      }
-      
-      const replitUserData = await response.json()
-      console.log('Replit user data:', replitUserData)
-      
-      // Map Replit user to your user structure
-      const userData = {
-        id: replitUserData.id || `replit-${Date.now()}`,
-        firstName: replitUserData.name || 'Replit',
-        lastName: 'User',
-        email: replitUserData.email || `${replitUserData.name}@replit.user`,
-        role: 'user',
-        status: 'active',
-        dateCreated: new Date().toISOString()
-      }
+      const userData = await response.json()
+      console.log('Replit user data:', userData)
 
-      // Store in your users list if not exists
-      const users = JSON.parse(localStorage.getItem('userAuth') || '[]')
-      if (!users.some(user => user.id === userData.id)) {
-        users.push(userData)
-        localStorage.setItem('userAuth', JSON.stringify(users))
+      if (userData) {
+        // User is authenticated, redirect to dashboard
+        router.push('/dashboard')
       }
-
-      handleSuccessfulLogin(userData)
     } catch (error) {
       console.error('Replit login error:', error)
       setError('Failed to login with Replit')
