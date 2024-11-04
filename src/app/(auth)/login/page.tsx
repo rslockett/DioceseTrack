@@ -171,8 +171,8 @@ const Page: React.FC<PageProps> = () => {
     const hostname = window.location.hostname
     console.log('Current hostname:', hostname)
     
-    const isReplit = hostname.includes('.repl.co') || 
-                    hostname.includes('.repl.dev') ||
+    const isReplit = hostname.includes('replit.dev') || 
+                    hostname.includes('.repl.co') ||
                     hostname === 'replit.com'
     
     console.log('Is Replit environment?', isReplit)
