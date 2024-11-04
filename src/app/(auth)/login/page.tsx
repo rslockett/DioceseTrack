@@ -36,6 +36,7 @@ const Page: React.FC<PageProps> = () => {
   const [error, setError] = React.useState('')
   const [showSignup, setShowSignup] = useState(false)
   const [isReplitEnvironment, setIsReplitEnvironment] = useState(false)
+  const [hostname, setHostname] = useState('')
 
   // Initialize admin accounts in localStorage if they don't exist
   useEffect(() => {
@@ -168,13 +169,14 @@ const Page: React.FC<PageProps> = () => {
   };
 
   useEffect(() => {
-    const hostname = window.location.hostname
-    console.log('Current hostname:', hostname)
+    const currentHostname = window.location.hostname
+    setHostname(currentHostname)
     
-    const isReplit = hostname.includes('replit.dev') || 
-                    hostname.includes('.repl.co') ||
-                    hostname === 'replit.com'
+    const isReplit = currentHostname.includes('replit.dev') || 
+                    currentHostname.includes('.repl.co') ||
+                    currentHostname === 'replit.com'
     
+    console.log('Current hostname:', currentHostname)
     console.log('Is Replit environment?', isReplit)
     setIsReplitEnvironment(isReplit)
   }, [])
@@ -184,7 +186,7 @@ const Page: React.FC<PageProps> = () => {
       <div className="text-sm text-gray-500">
         Running in: {isReplitEnvironment ? 'Replit' : 'Local'}
         <br />
-        Hostname: {window.location.hostname}
+        Hostname: {hostname}
       </div>
 
       <div>
