@@ -119,11 +119,7 @@ const Page: React.FC<PageProps> = () => {
       console.log('Replit user data:', replitUser)
       
       if (replitUser) {
-        console.log('Setting credentials...')
-        setEmail('admin@diocesetrack.com')
-        setPassword('admin123')
-        
-        // Call handleSuccessfulLogin directly instead of handleSubmit
+        // Skip the form submission entirely and directly log in as admin
         handleSuccessfulLogin(DIOCESE_ADMIN)
       }
     } catch (error) {
