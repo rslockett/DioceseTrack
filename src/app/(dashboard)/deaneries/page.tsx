@@ -12,6 +12,49 @@ interface DeaneryCardProps {
 }
 
 const DeaneryCard = ({ deanery, onEdit, onDelete }: DeaneryCardProps) => {
+  const [deanInfo, setDeanInfo] = useState<string>('Not assigned');
+  const [assignedParishes, setAssignedParishes] = useState<any[]>([]);
+
+  // Add this utility function within the component
+  const getTitleAbbreviation = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case 'priest':
+        return 'Fr.';
+      case 'deacon':
+        return 'Dn.';
+      case 'bishop':
+        return 'Bp.';
+      default:
+        return '';
+    }
+  };
+
+  // Add this effect to load dean information
+  useEffect(() => {
+    try {
+      // Get all parishes for this deanery
+      const allParishes = JSON.parse(localStorage.getItem('parishes') || '[]');
+      const deaneryParishes = allParishes.filter(p => p.deaneryId === deanery.id);
+      setAssignedParishes(deaneryParishes);
+
+      // Get dean info
+      const allClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+      const dean = allClergy.find(c => c.id === deanery.deanId || 
+        (c.type === 'Priest' && c.currentAssignment === deaneryParishes[0]?.name));
+
+      if (dean) {
+        const title = getTitleAbbreviation(dean.type);
+        setDeanInfo(`${title} ${dean.name}`);
+      } else if (deanery.deanName) {
+        setDeanInfo(deanery.deanName);
+      } else {
+        setDeanInfo('Not assigned');
+      }
+    } catch (error) {
+      console.error('Error loading deanery data:', error);
+    }
+  }, [deanery]);
+
   const handleDeleteClick = () => {
     if (window.confirm(`Are you sure you want to delete ${deanery.name}?`)) {
       onDelete(deanery.id);
@@ -29,39 +72,35 @@ const DeaneryCard = ({ deanery, onEdit, onDelete }: DeaneryCardProps) => {
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="font-semibold text-lg">{deanery.name}</h3>
-                <p className="text-sm text-gray-600">Dean: {deanery.deanName || 'Not assigned'}</p>
+                <div className="flex items-center text-sm text-gray-600">
+                  <Users className="h-4 w-4 mr-2" />
+                  <span>Dean: {deanInfo}</span>
+                </div>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => onEdit(deanery)}
-                  className="p-2 text-gray-600 hover:text-blue-600"
+                  className="p-2 hover:bg-gray-100 rounded-full"
                 >
-                  <Edit className="h-4 w-4" />
+                  <Edit className="h-4 w-4 text-gray-600" />
                 </button>
                 <button
                   onClick={handleDeleteClick}
-                  className="p-2 text-gray-600 hover:text-red-600"
+                  className="p-2 hover:bg-gray-100 rounded-full"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-4 w-4 text-red-600" />
                 </button>
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                  deanery.status === 'Active' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {deanery.status}
-                </span>
               </div>
             </div>
-            
+
             <div className="mt-4 space-y-2">
               <div className="flex flex-col space-y-1">
                 <div className="flex items-center text-sm text-gray-600">
                   <Users className="h-4 w-4 mr-2" />
                   <span className="font-semibold">Assigned Parishes:</span>
                 </div>
-                {deanery.parishes?.length > 0 ? (
-                  deanery.parishes.map(parish => (
+                {assignedParishes.length > 0 ? (
+                  assignedParishes.map(parish => (
                     <div key={parish.id} className="ml-6 text-sm text-gray-600">
                       {parish.name} {parish.status && `(${parish.status})`}
                     </div>
@@ -112,69 +151,57 @@ const DeaneriesPage = () => {
     }
   }, []);
 
-  const handleSaveDeanery = (formData: Deanery) => {
-    console.log('Saving deanery with data:', formData); // Debug log
+  const handleSaveDeanery = async (deaneryData: Deanery) => {
+    try {
+      const allDeaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
+      const updatedDeaneries = allDeaneries.map(d => 
+        d.id === deaneryData.id ? deaneryData : d
+      );
 
-    const processedData = {
-      ...formData,
-      id: formData.id || crypto.randomUUID(),
-    };
-
-    // Update deaneries list
-    const updatedDeaneries = editingDeanery
-      ? deaneryList.map(d => d.id === editingDeanery.id ? processedData : d)
-      : [...deaneryList, processedData];
-    
-    localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
-
-    // Update related parishes
-    const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
-    const updatedParishes = parishes.map(parish => {
-      // If parish is in the deanery's parish list, update it
-      if (formData.parishes?.includes(parish.id)) {
-        return {
-          ...parish,
-          deaneryId: processedData.id,
-          deanery: processedData.name // Make sure this matches your field name
-        };
+      if (!deaneryData.id) {
+        deaneryData.id = crypto.randomUUID();
+        updatedDeaneries.push(deaneryData);
       }
-      // If parish was previously in this deanery but isn't anymore, remove the reference
-      if (parish.deaneryId === processedData.id && !formData.parishes?.includes(parish.id)) {
-        const { deaneryId, deanery, ...rest } = parish;
-        return rest;
-      }
-      return parish;
-    });
-    localStorage.setItem('parishes', JSON.stringify(updatedParishes));
 
-    // Update related clergy (dean)
-    const clergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-    const updatedClergy = clergy.map(person => {
-      // If this is the new/current dean
-      if (person.id === formData.dean) {
-        return {
-          ...person,
-          role: person.role.includes('Dean') ? person.role : `Dean ${person.role}`.trim(),
-          deaneryId: processedData.id,
-          deaneryName: processedData.name
-        };
-      }
-      // If this person was previously the dean but isn't anymore
-      if (person.deaneryId === processedData.id && person.id !== formData.dean) {
-        return {
-          ...person,
-          role: person.role.replace(/\bDean\b/g, '').trim(),
-          deaneryId: undefined,
-          deaneryName: undefined
-        };
-      }
-      return person;
-    });
-    localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+      // Update parishes with deanery info
+      const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
+      const updatedParishes = parishes.map(parish => {
+        if (deaneryData.parishes?.some(p => p.id === parish.id)) {
+          return {
+            ...parish,
+            deaneryId: deaneryData.id,
+            deaneryName: deaneryData.name
+          };
+        }
+        return parish;
+      });
 
-    setDeaneryList(updatedDeaneries);
-    setShowAddForm(false);
-    setEditingDeanery(null);
+      // Update clergy with dean role
+      const clergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+      const updatedClergy = clergy.map(person => {
+        if (person.id === deaneryData.dean) {
+          return {
+            ...person,
+            role: person.role.includes('Dean') ? person.role : `Dean ${person.role}`.trim(),
+            deaneryId: deaneryData.id,
+            deaneryName: deaneryData.name
+          };
+        }
+        return person;
+      });
+
+      // Save all updates
+      localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
+      localStorage.setItem('parishes', JSON.stringify(updatedParishes));
+      localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+
+      setDeaneryList(updatedDeaneries);
+      setShowAddForm(false);
+      setEditingDeanery(null);
+    } catch (error) {
+      console.error('Error saving deanery:', error);
+      alert('Error saving deanery. Please try again.');
+    }
   };
 
   const handleDelete = (deaneryId: string) => {

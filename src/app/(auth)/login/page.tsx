@@ -77,6 +77,21 @@ const Page: React.FC<PageProps> = () => {
         return
       }
 
+      // Check regular user credentials
+      const loginCredentials = JSON.parse(localStorage.getItem('loginCredentials') || '[]');
+      const userCredential = loginCredentials.find(cred => cred.email === email && cred.password === password);
+
+      if (userCredential) {
+        // Get user data
+        const users = JSON.parse(localStorage.getItem('userAuth') || '[]');
+        const userData = users.find(user => user.id === userCredential.userId);
+
+        if (userData) {
+          handleSuccessfulLogin(userData);
+          return;
+        }
+      }
+
       setError('Invalid email or password')
     } catch (err) {
       console.error('Login error:', err)
@@ -84,19 +99,18 @@ const Page: React.FC<PageProps> = () => {
     }
   }
 
-  const handleSuccessfulLogin = (userData: typeof SYSTEM_ADMIN) => {
-    const userJson = JSON.stringify(userData)
-    localStorage.setItem('currentUser', userJson)
-    document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`
+  const handleSuccessfulLogin = (userData: any) => {
+    const userJson = JSON.stringify(userData);
+    localStorage.setItem('currentUser', userJson);
+    document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
     
-    console.log('Login successful:', {
-      user: userData.email,
-      localStorage: localStorage.getItem('currentUser'),
-      cookie: document.cookie
-    })
-
-    router.push('/dashboard')
-  }
+    // Direct users based on role
+    if (userData.role === 'user') {
+      router.push('/clergy');
+    } else {
+      router.push('/dashboard');
+    }
+  };
 
   return (
     <div className="space-y-8 p-8 bg-white rounded-lg shadow">

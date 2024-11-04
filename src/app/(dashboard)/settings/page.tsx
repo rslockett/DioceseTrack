@@ -618,6 +618,68 @@ const SettingsPage = () => {
     };
   }, []);
 
+  const handleCreateLogin = async () => {
+    if (!selectedUser) return;
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      alert("Passwords don't match!");
+      return;
+    }
+
+    try {
+      // Update user record
+      const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]');
+      const updatedUsers = existingUsers.map((u: any) => 
+        u.id === selectedUser.id ? { ...u, email: selectedUser.email } : u
+      );
+      localStorage.setItem('userAuth', JSON.stringify(updatedUsers));
+
+      // Update clergy record
+      const existingClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+      const updatedClergy = existingClergy.map((c: any) => 
+        c.id === selectedUser.id ? { ...c, email: selectedUser.email } : c
+      );
+      localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+
+      // Create login credentials
+      const newLoginCredential = {
+        email: selectedUser.email,
+        password: passwordData.newPassword,
+        userId: selectedUser.id
+      };
+
+      const existingCredentials = JSON.parse(localStorage.getItem('loginCredentials') || '[]');
+      const updatedCredentials = [...existingCredentials, newLoginCredential];
+      
+      // Update localStorage and state
+      localStorage.setItem('loginCredentials', JSON.stringify(updatedCredentials));
+      setLoginCredentials(updatedCredentials);
+      setUsers(updatedUsers);
+      
+      // Reset form state
+      setShowPasswordForm(false);
+      setSelectedUser(null);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      
+      alert('Login credentials created successfully!');
+
+      // Debug log
+      console.log('=== LOGIN CREDENTIALS CREATED ===');
+      console.log('Updated credentials:', updatedCredentials);
+      console.log('Updated users:', updatedUsers);
+    } catch (error) {
+      console.error('Error creating login credentials:', error);
+      alert('Error creating login credentials');
+    }
+  };
+
+  const [selectedUser, setSelectedUser] = useState<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    clergyType?: string;
+  } | null>(null);
+
   return (
     <div className="p-6 max-w-[1400px] mx-auto">
       {/* Page Header */}
@@ -898,7 +960,6 @@ const SettingsPage = () => {
                         <p className="font-medium">
                           {user.role === 'user' ? (
                             <>
-                              {/* Find matching clergy record and get their type */}
                               {(() => {
                                 const clergyRecord = clergyData.find(c => c.id === user.clergyId);
                                 if (clergyRecord) {
@@ -975,7 +1036,8 @@ const SettingsPage = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          setShowPasswordForm(true)
+                          setSelectedUser(user);
+                          setShowPasswordForm(true);
                         }}
                         className="text-blue-600 hover:text-blue-700"
                       >
@@ -1041,66 +1103,66 @@ const SettingsPage = () => {
           )}
 
           {/* Change Password Form */}
-          {showPasswordForm && (
+          {showPasswordForm && selectedUser && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
               <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-                <h3 className="text-lg font-medium mb-4">Change Password</h3>
+                <h3 className="text-lg font-medium mb-4">Create Login Credentials</h3>
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Current Password
-                    </label>
+                  <div className="space-y-2">
+                    <div className="text-sm text-gray-600">Name</div>
+                    <div className="font-medium">
+                      {`${getTitleAbbreviation(selectedUser.clergyType || 'Priest')} ${selectedUser.firstName} ${selectedUser.lastName}`}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm text-gray-600">Email</label>
                     <input
-                      type="password"
-                      value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData({
-                        ...passwordData,
-                        currentPassword: e.target.value
-                      })}
+                      type="email"
+                      value={selectedUser.email}
+                      onChange={(e) => {
+                        setSelectedUser({ ...selectedUser, email: e.target.value });
+                      }}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
                     />
                   </div>
+
+                  {/* Password Fields */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      New Password
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700">New Password</label>
                     <input
                       type="password"
                       value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData({
-                        ...passwordData,
-                        newPassword: e.target.value
-                      })}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
                     />
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Confirm New Password
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
                     <input
                       type="password"
                       value={passwordData.confirmPassword}
-                      onChange={(e) => setPasswordData({
-                        ...passwordData,
-                        confirmPassword: e.target.value
-                      })}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
                     />
                   </div>
-                  <div className="flex justify-end gap-2">
+
+                  <div className="flex justify-end space-x-3 mt-6">
                     <Button
                       variant="outline"
-                      onClick={() => setShowPasswordForm(false)}
+                      onClick={() => {
+                        setShowPasswordForm(false);
+                        setSelectedUser(null);
+                        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                      }}
                     >
                       Cancel
                     </Button>
-                    <Button onClick={() => {
-                      // Handle password change logic here
-                      setShowPasswordForm(false)
-                    }}>
-                      Change Password
-                    </Button>
+                    <Button onClick={handleCreateLogin}>Create Login</Button>
                   </div>
                 </div>
               </div>

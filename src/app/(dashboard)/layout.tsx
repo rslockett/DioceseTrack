@@ -12,61 +12,65 @@ import {
   Home,
   Building,
   FileText,
+  Menu,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { useTheme } from '@/components/ThemeProvider'
 
 // Define menu items with role access
 const ALL_MENU_ITEMS = [
   {
-    title: "Dashboard",
-    href: "/dashboard",
+    name: 'Dashboard',
+    href: '/dashboard',
     icon: Home,
-    roles: ['admin', 'staff'], // Only admin and staff can see dashboard
+    roles: ['admin', 'staff']
   },
   {
-    title: "Clergy",
-    href: "/clergy",
+    name: 'Clergy',
+    href: '/clergy',
     icon: Users2,
-    roles: ['admin', 'staff', 'user'], // Everyone can see clergy
+    roles: ['admin', 'staff', 'user']
   },
   {
-    title: "Parishes",
-    href: "/parishes",
+    name: 'Parishes',
+    href: '/parishes',
     icon: Church,
-    roles: ['admin', 'staff'], // Admin and staff only
+    roles: ['admin', 'staff']
   },
   {
-    title: "Deaneries",
-    href: "/deaneries",
-    icon: Building,
-    roles: ['admin', 'staff'],
+    name: 'Deaneries',
+    href: '/deaneries',
+    icon: Map,
+    roles: ['admin', 'staff']
   },
   {
-    title: "Calendar",
-    href: "/calendar",
-    icon: Calendar,
-    roles: ['admin', 'staff'],
-  },
-  {
-    title: "Documents",
-    href: "/documents",
+    name: 'Documents',
+    href: '/documents',
     icon: FileText,
-    roles: ['admin', 'staff'],
+    roles: ['admin', 'staff']
   },
   {
-    title: "Reports",
-    href: "/reports",
+    name: 'Calendar',
+    href: '/calendar',
+    icon: Calendar,
+    roles: ['admin', 'staff']
+  },
+  {
+    name: 'Reports',
+    href: '/reports',
     icon: FileStack,
-    roles: ['admin', 'staff'],
+    roles: ['admin', 'staff']
   },
   {
-    title: "Settings",
-    href: "/settings",
+    name: 'Settings',
+    href: '/settings',
     icon: Settings,
-    roles: ['admin'], // Admin only
-  },
-]
+    roles: ['admin']
+  }
+];
 
 export default function DashboardLayout({
   children,
@@ -74,11 +78,13 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [user, setUser] = useState<any>(null)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { theme, toggleTheme } = useTheme()
 
   useEffect(() => {
     try {
-      // Get current user from localStorage
       const userStr = localStorage.getItem('currentUser')
       if (!userStr) {
         router.push('/login')
@@ -91,67 +97,108 @@ export default function DashboardLayout({
         return
       }
 
+      if (currentUser.role === 'user') {
+        if (pathname !== '/clergy') {
+          router.push('/clergy')
+          return
+        }
+      } else if (currentUser.role === 'staff') {
+        if (pathname === '/settings') {
+          router.push('/dashboard')
+          return
+        }
+      }
+
       setUser(currentUser)
     } catch (error) {
       console.error('Error parsing user data:', error)
       router.push('/login')
     }
-  }, [router])
-
-  // Show loading state while checking user
-  if (!user) {
-    return <div>Loading...</div>
-  }
-
-  // Filter menu items based on user role
-  const menuItems = ALL_MENU_ITEMS.filter(item => item.roles.includes(user.role));
-
-  // For regular users, modify the clergy link to point to their profile
-  const getModifiedHref = (item: typeof ALL_MENU_ITEMS[0]) => {
-    return item.href;
-  };
+  }, [router, pathname])
 
   const handleLogout = () => {
     localStorage.removeItem('currentUser')
-    // Also remove the cookie
     document.cookie = 'currentUser=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;'
     router.push('/login')
   }
 
-  return (
-    <div className="flex min-h-screen bg-gray-50">
-      <nav className="fixed left-0 top-0 bottom-0 w-64 bg-slate-800 text-white p-4">
-        <div className="mb-8">
-          <h1 className="text-xl font-bold px-4">Diocese CMS</h1>
-        </div>
-        
-        <div className="space-y-2">
-          {menuItems.map((item) => (
-            <Link 
-              key={item.title} 
-              href={getModifiedHref(item)} 
-              className="flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-700"
-            >
-              <item.icon className="h-5 w-5" />
-              <span>{item.title}</span>
-            </Link>
-          ))}
-        </div>
+  if (!user) {
+    return <div>Loading...</div>
+  }
 
-        <div className="absolute bottom-4 left-4 right-4">
-          <button 
-            onClick={handleLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 text-slate-300 hover:bg-slate-700 rounded-lg"
-          >
-            <LogOut className="h-5 w-5" />
-            <span>Logout</span>
-          </button>
+  const menuItems = ALL_MENU_ITEMS.filter(item => item.roles.includes(user.role))
+
+  return (
+    <div className="flex flex-col md:flex-row min-h-screen bg-white dark:bg-gray-900">
+      {/* Mobile Menu Button */}
+      <div className="md:hidden p-4 border-b dark:border-gray-800">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-bold dark:text-white">Diocese Track</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+            >
+              {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            </button>
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 text-gray-600 dark:text-gray-400"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+          </div>
         </div>
-      </nav>
-      
-      <main className="flex-1 ml-64">
+      </div>
+
+      {/* Sidebar */}
+      <div className={`
+        ${isMobileMenuOpen ? 'block' : 'hidden'} 
+        md:block w-full md:w-64 bg-white dark:bg-gray-900 border-r dark:border-gray-800
+      `}>
+        <div className="flex flex-col h-full">
+          <div className="hidden md:block p-4">
+            <h2 className="text-xl font-bold">Diocese Track</h2>
+            <p className="text-sm text-gray-500">{user.firstName} {user.lastName}</p>
+          </div>
+
+          <nav className="flex-1 p-4">
+            <ul className="space-y-2">
+              {menuItems.map((item) => (
+                <li key={item.name}>
+                  <Link
+                    href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`flex items-center p-2 rounded-lg ${
+                      pathname === item.href
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <item.icon className="h-5 w-5 mr-3" />
+                    {item.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <div className="p-4 border-t">
+            <button
+              onClick={handleLogout}
+              className="flex items-center w-full p-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+            >
+              <LogOut className="h-5 w-5 mr-3" />
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto bg-gray-50">
         {children}
       </main>
     </div>
-  );
+  )
 }

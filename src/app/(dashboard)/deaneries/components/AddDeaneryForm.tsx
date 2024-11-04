@@ -25,6 +25,20 @@ const CLERGY_TYPES = [
   { value: 'Bishop', title: 'Bp.' }
 ] as const;
 
+// Add this utility function at the top of the file
+const getTitleAbbreviation = (type: string) => {
+  switch (type?.toLowerCase()) {
+    case 'priest':
+      return 'Fr.';
+    case 'deacon':
+      return 'Dn.';
+    case 'bishop':
+      return 'Bp.';
+    default:
+      return '';
+  }
+};
+
 export function AddDeaneryForm({ initialData, onClose, onSave, onDelete }: AddDeaneryFormProps) {
   const [clergy, setClergy] = useState<Array<{ id: string; name: string; displayName: string; role: string }>>([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -47,29 +61,51 @@ export function AddDeaneryForm({ initialData, onClose, onSave, onDelete }: AddDe
     phone: ''
   });
 
-  // Load clergy data when component mounts
+  // Add this effect to handle dean selection logic
   useEffect(() => {
     try {
-      const storedClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-      console.log('Loading all clergy:', storedClergy);
+      const allClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+      console.log('Loading all clergy:', allClergy);
       
-      // Filter for clergy with role "Dean"
-      const deanClergy = storedClergy
-        .filter(person => person.role === 'Dean')
-        .map(person => ({
-          id: person.id,
-          name: person.name || `${person.firstName} ${person.lastName}`.trim(),
-          displayName: `${getTitleAbbreviation(person.type)} ${person.name || `${person.firstName} ${person.lastName}`.trim()}`,
-          role: person.role
-        }));
-      
-      console.log('Available deans:', deanClergy);
+      // Filter clergy to only show those with Dean role
+      const deanClergy = allClergy.filter(person => 
+        person.role?.toLowerCase().includes('dean')
+      ).map(person => ({
+        id: person.id,
+        displayName: `${getTitleAbbreviation(person.type)} ${person.name}`,
+        currentAssignment: person.currentAssignment
+      }));
+
       setClergy(deanClergy);
+
+      // Auto-select dean if there's only one dean in the selected parishes
+      if (formData.parishes?.length > 0) {
+        const deansInSelectedParishes = deanClergy.filter(dean =>
+          formData.parishes.some(parishId => {
+            const parish = parishes.find(p => p.id === parishId);
+            return parish?.name === dean.currentAssignment;
+          })
+        );
+
+        if (deansInSelectedParishes.length === 1) {
+          setFormData(prev => ({
+            ...prev,
+            dean: deansInSelectedParishes[0].id,
+            deanName: deansInSelectedParishes[0].displayName
+          }));
+        } else if (deansInSelectedParishes.length > 1) {
+          // Clear dean selection if multiple deans found
+          setFormData(prev => ({
+            ...prev,
+            dean: '',
+            deanName: ''
+          }));
+        }
+      }
     } catch (error) {
       console.error('Error loading clergy data:', error);
-      setClergy([]);
     }
-  }, []);
+  }, [formData.parishes, parishes]);
 
   // Add this useEffect to load assigned parishes
   useEffect(() => {

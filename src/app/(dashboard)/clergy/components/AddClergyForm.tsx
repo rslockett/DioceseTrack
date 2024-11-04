@@ -109,6 +109,14 @@ const CLERGY_ROLES = [
   'Youth Director'
 ] as const;
 
+// Define default roles as a constant at the top of the file, outside the component
+const DEFAULT_CLERGY_ROLES = [
+  'Pastor',
+  'Assistant Pastor',
+  'Youth Director',
+  'Dean'
+] as const;
+
 export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddClergyFormProps) {
   console.log('Form initialData:', initialData);
 
@@ -159,6 +167,8 @@ export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddCle
   const [showCropper, setShowCropper] = useState(false);
   const [tempImage, setTempImage] = useState<string>('');
 
+  const [CLERGY_ROLES, setClergyClergyRoles] = useState<string[]>([]);
+
   useEffect(() => {
     try {
       const storedDeaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
@@ -187,8 +197,39 @@ export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddCle
   }, [selectedDeaneryId]);
 
   useEffect(() => {
-    const storedRoles = JSON.parse(localStorage.getItem('clergyRoles') || '["Pastor", "Assistant Pastor", "Youth Director"]');
-    setRoles(storedRoles);
+    try {
+      // Get roles from localStorage or use defaults if none exist
+      const storedRoles = localStorage.getItem('clergyRoles');
+      let rolesArray: string[];
+      
+      if (!storedRoles) {
+        // If no roles in localStorage, use defaults and set them
+        rolesArray = [...DEFAULT_CLERGY_ROLES];
+        localStorage.setItem('clergyRoles', JSON.stringify(rolesArray));
+      } else {
+        rolesArray = JSON.parse(storedRoles);
+        // Ensure all default roles are always present
+        let hasNewRoles = false;
+        DEFAULT_CLERGY_ROLES.forEach(defaultRole => {
+          if (!rolesArray.includes(defaultRole)) {
+            rolesArray.push(defaultRole);
+            hasNewRoles = true;
+          }
+        });
+        if (hasNewRoles) {
+          localStorage.setItem('clergyRoles', JSON.stringify(rolesArray));
+        }
+      }
+      
+      setRoles(rolesArray);
+      setClergyClergyRoles(rolesArray);
+      
+      console.log('Loaded clergy roles:', rolesArray);
+    } catch (error) {
+      console.error('Error loading clergy roles:', error);
+      setRoles([...DEFAULT_CLERGY_ROLES]);
+      setClergyClergyRoles([...DEFAULT_CLERGY_ROLES]);
+    }
   }, []);
 
   useEffect(() => {
@@ -256,9 +297,10 @@ export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddCle
   };
 
   const handleAddRole = () => {
-    if (newRole.trim() && !roles.includes(newRole.trim())) {
+    if (newRole.trim()) {
       const updatedRoles = [...roles, newRole.trim()];
       setRoles(updatedRoles);
+      setClergyClergyRoles(updatedRoles);
       localStorage.setItem('clergyRoles', JSON.stringify(updatedRoles));
       setNewRole('');
       setIsAddingRole(false);
@@ -266,14 +308,14 @@ export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddCle
   };
 
   const handleRemoveRole = (roleToRemove: string) => {
+    if (DEFAULT_CLERGY_ROLES.includes(roleToRemove as any)) {
+      alert('The ' + roleToRemove + ' role cannot be removed as it is required by the system.');
+      return;
+    }
     const updatedRoles = roles.filter(role => role !== roleToRemove);
     setRoles(updatedRoles);
+    setClergyClergyRoles(updatedRoles);
     localStorage.setItem('clergyRoles', JSON.stringify(updatedRoles));
-    
-    // If the current form has this role selected, clear it
-    if (formData.role === roleToRemove) {
-      setFormData(prev => ({ ...prev, role: '' }));
-    }
   };
 
   // Add this function to handle assignment changes
