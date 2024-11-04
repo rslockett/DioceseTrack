@@ -59,56 +59,29 @@ const Page: React.FC<PageProps> = () => {
     }
   }, [])
 
-  // Add Replit auth script if in Replit environment
+  // Load Replit auth script
   useEffect(() => {
-    // Check if we're in Replit environment
-    const isReplit = window.location.hostname.includes('replit.dev') || 
-                    window.location.hostname.includes('repl.co')
-    setIsReplitEnvironment(isReplit)
-
-    if (isReplit) {
+    if (window.location.hostname.includes('replit')) {
       const script = document.createElement('script')
-      script.src = 'https://replit.com/public/js/repl-auth-v2.js'
-      script.async = true
+      script.src = "https://replit.com/public/js/repl-auth-v2.js"
+      script.onload = () => console.log('Replit auth script loaded')
       document.head.appendChild(script)
-
-      return () => {
-        document.head.removeChild(script)
-      }
     }
   }, [])
 
-  // Listen for auth message from Replit
-  useEffect(() => {
-    const handleAuth = async (e: MessageEvent) => {
-      if (e.data.type === 'replitAuthenticated') {
-        console.log('Replit auth completed')
-        try {
-          const response = await fetch('/__replauthuser')
-          const userData = await response.json()
-          console.log('Replit user data:', userData)
-          
-          if (userData) {
-            router.push('/dashboard')
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error)
-        }
-      }
-    }
-
-    window.addEventListener('message', handleAuth)
-    return () => window.removeEventListener('message', handleAuth)
-  }, [router])
-
+  // Simple login handler
   const handleReplitLogin = async () => {
     try {
-      console.log('Starting Replit login...')
-      // @ts-ignore - Replit auth function
+      // @ts-ignore
       await window.LoginWithReplit()
+      const response = await fetch('/__replauthuser')
+      const user = await response.json()
+      if (user) {
+        console.log('Logged in user:', user)
+        router.push('/dashboard')
+      }
     } catch (error) {
-      console.error('Replit login error:', error)
-      setError('Failed to login with Replit')
+      console.error('Login error:', error)
     }
   }
 
@@ -202,11 +175,10 @@ const Page: React.FC<PageProps> = () => {
 
       {!showSignup ? (
         <>
-          {isReplitEnvironment ? (
-            // Replit Login Button
+          {window.location.hostname.includes('replit') ? (
             <button
               onClick={handleReplitLogin}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700"
             >
               Login with Replit
             </button>
