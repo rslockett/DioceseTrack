@@ -85,10 +85,26 @@ const Page: React.FC<PageProps> = () => {
       console.log('LoginWithReplit called')
       
       const response = await fetch('/__replauthuser')
-      const user = await response.json()
-      console.log('User data:', user)
+      const replitUser = await response.json()
+      console.log('User data:', replitUser)
       
-      if (user) {
+      if (replitUser) {
+        // Create a user object that matches your app's structure
+        const userData = {
+          id: `replit-${replitUser.id}`,
+          firstName: replitUser.name,
+          lastName: '',
+          email: `${replitUser.name}@replit.user`,
+          role: 'user',
+          status: 'active',
+          dateCreated: new Date().toISOString()
+        }
+
+        // Store the user data
+        localStorage.setItem('currentUser', JSON.stringify(userData))
+        console.log('Stored user data, redirecting...')
+        
+        // Redirect to dashboard
         router.push('/dashboard')
       }
     } catch (error) {
