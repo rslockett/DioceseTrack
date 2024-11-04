@@ -35,6 +35,7 @@ const Page: React.FC<PageProps> = () => {
   const [password, setPassword] = React.useState('')
   const [error, setError] = React.useState('')
   const [showSignup, setShowSignup] = useState(false)
+  const [isReplitEnvironment, setIsReplitEnvironment] = useState(false)
 
   // Initialize admin accounts in localStorage if they don't exist
   useEffect(() => {
@@ -56,6 +57,60 @@ const Page: React.FC<PageProps> = () => {
       console.log('Admin accounts initialized')
     }
   }, [])
+
+  // Add Replit auth script if in Replit environment
+  useEffect(() => {
+    // Check if we're in Replit environment
+    const isReplit = window.location.hostname.includes('replit.dev') || 
+                    window.location.hostname.includes('repl.co')
+    setIsReplitEnvironment(isReplit)
+
+    if (isReplit) {
+      const script = document.createElement('script')
+      script.src = 'https://replit.com/public/js/repl-auth-v2.js'
+      script.async = true
+      document.head.appendChild(script)
+
+      return () => {
+        document.head.removeChild(script)
+      }
+    }
+  }, [])
+
+  // Add Replit auth handler with proper user data fetching
+  const handleReplitLogin = async () => {
+    try {
+      // @ts-ignore - Replit auth function
+      await window.LoginWithReplit()
+      
+      // Fetch Replit user data
+      const response = await fetch('/__replauthuser')
+      const replitUserData = await response.json()
+      
+      // Map Replit user to your user structure
+      const userData = {
+        id: replitUserData.id || `replit-${Date.now()}`,
+        firstName: replitUserData.name || 'Replit',
+        lastName: 'User',
+        email: replitUserData.email || `${replitUserData.name}@replit.user`,
+        role: 'user',
+        status: 'active',
+        dateCreated: new Date().toISOString()
+      }
+
+      // Store in your users list if not exists
+      const users = JSON.parse(localStorage.getItem('userAuth') || '[]')
+      if (!users.some(user => user.id === userData.id)) {
+        users.push(userData)
+        localStorage.setItem('userAuth', JSON.stringify(users))
+      }
+
+      handleSuccessfulLogin(userData)
+    } catch (error) {
+      console.error('Replit login error:', error)
+      setError('Failed to login with Replit')
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -112,8 +167,22 @@ const Page: React.FC<PageProps> = () => {
     }
   };
 
+  useEffect(() => {
+    const hostname = window.location.hostname
+    console.log('Current hostname:', hostname)
+    
+    const isReplit = hostname.includes('.repl.co') || 
+                    hostname.includes('.repl.dev') ||
+                    hostname === 'replit.com'
+    
+    console.log('Is Replit environment?', isReplit)
+    setIsReplitEnvironment(isReplit)
+  }, [])
+
   return (
     <div className="space-y-8 p-8 bg-white rounded-lg shadow">
+      <div className="text-sm text-gray-500">Running in: {isReplitEnvironment ? 'Replit' : 'Local'}</div>
+
       <div>
         <h2 className="text-center text-3xl font-bold text-gray-900">
           Sign in to your account
@@ -128,74 +197,85 @@ const Page: React.FC<PageProps> = () => {
 
       {!showSignup ? (
         <>
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div className="rounded-md shadow-sm space-y-4">
-              <div className="relative">
-                <label htmlFor="email" className="sr-only">
-                  Email address
-                </label>
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  className="appearance-none rounded-lg relative block w-full px-10 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Email address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+          {isReplitEnvironment ? (
+            // Replit Login Button
+            <button
+              onClick={handleReplitLogin}
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Login with Replit
+            </button>
+          ) : (
+            // Existing Login Form
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              <div className="rounded-md shadow-sm space-y-4">
+                <div className="relative">
+                  <label htmlFor="email" className="sr-only">
+                    Email address
+                  </label>
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    className="appearance-none rounded-lg relative block w-full px-10 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Email address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <div className="relative">
+                  <label htmlFor="password" className="sr-only">
+                    Password
+                  </label>
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    className="appearance-none rounded-lg relative block w-full px-10 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                </div>
               </div>
-              <div className="relative">
-                <label htmlFor="password" className="sr-only">
-                  Password
-                </label>
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  className="appearance-none rounded-lg relative block w-full px-10 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+
+              <div>
                 <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                  type="submit"
+                  className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400" />
-                  )}
+                  Sign in
                 </button>
               </div>
-            </div>
 
-            <div>
-              <button
-                type="submit"
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Sign in
-              </button>
-            </div>
-
-            <div className="text-center">
-              <p className="text-sm text-gray-600">
-                Don't have an account?{' '}
-                <button
-                  onClick={() => setShowSignup(true)}
-                  className="text-blue-500 hover:underline"
-                >
-                  Create one here
-                </button>
-              </p>
-            </div>
-          </form>
+              <div className="text-center">
+                <p className="text-sm text-gray-600">
+                  Don't have an account?{' '}
+                  <button
+                    onClick={() => setShowSignup(true)}
+                    className="text-blue-500 hover:underline"
+                  >
+                    Create one here
+                  </button>
+                </p>
+              </div>
+            </form>
+          )}
         </>
       ) : (
         <div>
