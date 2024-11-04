@@ -122,8 +122,13 @@ const Page: React.FC<PageProps> = () => {
         console.log('Setting credentials...')
         setEmail('admin@diocesetrack.com')
         setPassword('admin123')
-        console.log('Triggering login...')
-        handleSubmit(new Event('submit') as any)
+        console.log('Waiting for state update...')
+        
+        // Wait for next render cycle
+        setTimeout(() => {
+          console.log('Triggering login...')
+          handleSubmit(new Event('submit') as any)
+        }, 0)
       }
     } catch (error) {
       console.error('Replit login error:', error)
