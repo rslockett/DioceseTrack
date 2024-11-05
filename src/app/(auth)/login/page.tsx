@@ -154,8 +154,18 @@ const Page: React.FC<PageProps> = () => {
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
       console.log('Navigating to:', targetPath);
       
-      // Force immediate navigation
-      window.location.href = targetPath;
+      // Try multiple navigation methods
+      try {
+        router.push(targetPath);
+      } catch {
+        try {
+          window.location.replace(targetPath);
+        } catch {
+          window.location = targetPath as any;
+        }
+      }
+      
+      console.log('Navigation methods attempted');
       
     } catch (err) {
       console.error('Login process error:', err);
