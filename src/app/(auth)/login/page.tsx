@@ -155,13 +155,14 @@ const Page: React.FC<PageProps> = () => {
       console.log('Navigating to:', targetPath);
       
       // Use router for navigation
-      router.push(targetPath).then(() => {
+      try {
+        router.push(targetPath);
         console.log('Navigation successful');
-      }).catch((err) => {
+      } catch (err) {
         console.error('Router navigation failed:', err);
         // Fallback to window.location
         window.location.href = targetPath;
-      });
+      }
       
     } catch (err) {
       console.error('Login process error:', err);
