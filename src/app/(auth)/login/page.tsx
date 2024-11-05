@@ -143,21 +143,22 @@ const Page: React.FC<PageProps> = () => {
 
   const handleSuccessfulLogin = (userData: any) => {
     try {
-      console.log('Starting login process...')
-      const userJson = JSON.stringify(userData)
-      safeStorage.setItem('currentUser', userJson)
-      document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`
+      console.log('Starting login process...');
+      const userJson = JSON.stringify(userData);
+      safeStorage.setItem('currentUser', userJson);
+      document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
       
-      const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard'
-      console.log('Navigating to:', targetPath)
+      const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
+      console.log('Navigating to:', targetPath);
       
-      // Use direct navigation instead of Next.js router
-      window.location.href = targetPath
+      // Force a hard redirect in Replit
+      window.location.replace(window.location.origin + targetPath);
+      
     } catch (err) {
-      console.error('Login error:', err)
-      setError('Error during login process. Please try again.')
+      console.error('Login error:', err);
+      setError('Error during login process. Please try again.');
     }
-  }
+  };
 
   return (
     <div className="space-y-8 p-8 bg-white rounded-lg shadow">
