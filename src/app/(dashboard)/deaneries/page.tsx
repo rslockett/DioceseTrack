@@ -155,57 +155,62 @@ const DeaneriesPage = () => {
     }
   }, []);
 
-  const handleSaveDeanery = async (deaneryData: Deanery) => {
+  const handleSaveDeanery = (deaneryData: Deanery) => {
     try {
-      // Ensure dean property is set correctly
-      if (deaneryData.deanId) {
-        deaneryData.dean = deaneryData.deanId;
-      }
+      const existingDeaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
+      const existingParishes = JSON.parse(localStorage.getItem('parishes') || '[]');
+      const existingClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
 
-      const allDeaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
-      const updatedDeaneries = allDeaneries.map(d => 
-        d.id === deaneryData.id ? deaneryData : d
-      );
-
-      if (!deaneryData.id) {
-        deaneryData.id = crypto.randomUUID();
-        updatedDeaneries.push(deaneryData);
-      }
-
-      // Update clergy with deanery info
-      const clergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-      const updatedClergy = clergy.map(person => {
-        if (person.id === deaneryData.dean || person.id === deaneryData.deanId) {
+      // Update parishes with the new deaneryId
+      const updatedParishes = existingParishes.map(parish => {
+        if (deaneryData.parishes.includes(parish.id)) {
           return {
-            ...person,
-            deaneryId: deaneryData.id,
-            deaneryName: deaneryData.name,
-            role: person.role?.includes('Dean') ? person.role : `Dean ${person.role || ''}`
+            ...parish,
+            deaneryId: deaneryData.id || crypto.randomUUID(),
+            deaneryName: deaneryData.name
           };
         }
-        // Remove dean role if no longer dean of this deanery
-        if (person.deaneryId === deaneryData.id && person.id !== deaneryData.dean) {
-          return {
-            ...person,
-            deaneryId: undefined,
-            deaneryName: undefined,
-            role: person.role?.replace(/\bDean\b/g, '').trim()
-          };
-        }
-        return person;
+        return parish;
       });
 
-      // Save all updates
-      localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
-      localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+      // Check if any of the assigned parishes have a Dean
+      const deanFromParishes = existingClergy.find(clergy => 
+        clergy.role?.toLowerCase() === 'dean' && 
+        updatedParishes.some(p => 
+          p.deaneryId === deaneryData.id && 
+          p.assignedClergy?.some(ac => ac.id === clergy.id)
+        )
+      );
+
+      // If we found a dean, update the deanery data
+      if (deanFromParishes) {
+        deaneryData.deanId = deanFromParishes.id;
+        deaneryData.deanName = deanFromParishes.name;
+      }
+
+      // Save everything
       localStorage.setItem('parishes', JSON.stringify(updatedParishes));
 
-      setDeaneryList(updatedDeaneries);
+      if (deaneryData.id) {
+        const updatedDeaneries = existingDeaneries.map(deanery =>
+          deanery.id === deaneryData.id ? { ...deanery, ...deaneryData } : deanery
+        );
+        localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
+        setDeaneryList(updatedDeaneries);
+      } else {
+        const newDeanery = {
+          ...deaneryData,
+          id: crypto.randomUUID()
+        };
+        const updatedDeaneries = [...existingDeaneries, newDeanery];
+        localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
+        setDeaneryList(updatedDeaneries);
+      }
+
       setShowAddForm(false);
       setEditingDeanery(null);
     } catch (error) {
       console.error('Error saving deanery:', error);
-      alert('Error saving deanery. Please try again.');
     }
   };
 
