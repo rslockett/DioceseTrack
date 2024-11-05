@@ -143,19 +143,35 @@ const Page: React.FC<PageProps> = () => {
 
   const handleSuccessfulLogin = (userData: any) => {
     try {
-      console.log('Starting login process...');
+      console.log('=== LOGIN PROCESS START ===');
+      console.log('User data:', userData);
+      
       const userJson = JSON.stringify(userData);
       safeStorage.setItem('currentUser', userJson);
+      console.log('Stored in localStorage:', safeStorage.getItem('currentUser'));
+      
       document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
+      console.log('Cookie set:', document.cookie);
       
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
-      console.log('Navigating to:', targetPath);
+      console.log('Target path:', targetPath);
+      console.log('Current location:', window.location.href);
+      console.log('Full target URL:', window.location.origin + targetPath);
       
-      // Force a hard redirect in Replit
-      window.location.replace(window.location.origin + targetPath);
+      try {
+        window.location.replace(window.location.origin + targetPath);
+        console.log('Navigation attempted');
+      } catch (navError) {
+        console.error('Navigation error:', navError);
+        // Fallback navigation
+        console.log('Trying fallback navigation...');
+        window.location.href = targetPath;
+      }
+      
+      console.log('=== LOGIN PROCESS END ===');
       
     } catch (err) {
-      console.error('Login error:', err);
+      console.error('Login process error:', err);
       setError('Error during login process. Please try again.');
     }
   };
