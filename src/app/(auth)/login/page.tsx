@@ -140,14 +140,29 @@ const Page: React.FC<PageProps> = () => {
   }
 
   const handleSuccessfulLogin = (userData: any) => {
-    const userJson = JSON.stringify(userData);
-    localStorage.setItem('currentUser', userJson);
-    document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
-    
-    if (userData.role === 'user') {
-      router.push('/clergy');
-    } else {
-      router.push('/dashboard');
+    try {
+      console.log('Starting login process...');
+      const userJson = JSON.stringify(userData);
+      safeStorage.setItem('currentUser', userJson);
+      document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
+      
+      console.log('User role:', userData.role);
+      console.log('Attempting navigation...');
+      
+      // Force a small delay before navigation
+      setTimeout(() => {
+        if (userData.role === 'user') {
+          console.log('Navigating to /clergy');
+          window.location.href = '/clergy';
+        } else {
+          console.log('Navigating to /dashboard');
+          window.location.href = '/dashboard';
+        }
+      }, 100);
+      
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Error during login process. Please try again.');
     }
   };
 
