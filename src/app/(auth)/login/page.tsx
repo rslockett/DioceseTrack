@@ -154,18 +154,14 @@ const Page: React.FC<PageProps> = () => {
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
       console.log('Navigating to:', targetPath);
       
-      // Try multiple navigation methods
-      try {
-        router.push(targetPath);
-      } catch {
-        try {
-          window.location.replace(targetPath);
-        } catch {
-          window.location = targetPath as any;
-        }
-      }
-      
-      console.log('Navigation methods attempted');
+      // Use router for navigation
+      router.push(targetPath).then(() => {
+        console.log('Navigation successful');
+      }).catch((err) => {
+        console.error('Router navigation failed:', err);
+        // Fallback to window.location
+        window.location.href = targetPath;
+      });
       
     } catch (err) {
       console.error('Login process error:', err);
