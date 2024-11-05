@@ -62,24 +62,26 @@ const Page: React.FC<PageProps> = () => {
       const users = JSON.parse(safeStorage.getItem('userAuth') || '[]')
       let updated = false
 
-      if (!users.some(user => user.email === SYSTEM_ADMIN.email)) {
+      if (users.length === 0) {
         users.push(SYSTEM_ADMIN)
-        updated = true
-        console.log('Added system admin')
-      }
-
-      if (!users.some(user => user.email === DIOCESE_ADMIN.email)) {
         users.push(DIOCESE_ADMIN)
         updated = true
-        console.log('Added diocese admin')
+        console.log('Added admin accounts')
       }
 
       if (updated) {
         const success = safeStorage.setItem('userAuth', JSON.stringify(users))
-        if (success) {
-          console.log('Successfully initialized admin accounts')
-        } else {
+        if (!success) {
           setError('Error initializing system. Please try again.')
+        }
+      }
+
+      if (window.location.pathname !== '/login') {
+        const currentUser = safeStorage.getItem('currentUser')
+        if (currentUser) {
+          const userData = JSON.parse(currentUser)
+          const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard'
+          window.location.href = targetPath
         }
       }
     } catch (err) {
@@ -87,22 +89,6 @@ const Page: React.FC<PageProps> = () => {
       setError('Error initializing system. Please refresh the page.')
     }
   }, [])
-
-  useEffect(() => {
-    // Check if we're stuck on login page with valid auth
-    const currentUser = safeStorage.getItem('currentUser');
-    if (currentUser) {
-      try {
-        const userData = JSON.parse(currentUser);
-        const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
-        if (window.location.pathname === '/login') {
-          window.location.href = targetPath;
-        }
-      } catch (err) {
-        console.error('Error checking auth state:', err);
-      }
-    }
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -155,37 +141,23 @@ const Page: React.FC<PageProps> = () => {
     }
   }
 
-  const handleSuccessfulLogin = async (userData: any) => {
+  const handleSuccessfulLogin = (userData: any) => {
     try {
-      console.log('Starting login process...');
-      const userJson = JSON.stringify(userData);
-      safeStorage.setItem('currentUser', userJson);
-      document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
+      console.log('Starting login process...')
+      const userJson = JSON.stringify(userData)
+      safeStorage.setItem('currentUser', userJson)
+      document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`
       
-      console.log('User role:', userData.role);
-      console.log('Attempting navigation...');
+      const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard'
+      console.log('Navigating to:', targetPath)
       
-      // Add a check for the current URL
-      const currentPath = window.location.pathname;
-      const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
-      
-      if (currentPath === targetPath) {
-        // If we're already on the target page, force a reload
-        window.location.reload();
-      } else {
-        // Otherwise, try router first, then fallback to location
-        try {
-          await router.push(targetPath);
-        } catch (navError) {
-          console.log('Router navigation failed, using fallback...');
-          window.location.href = targetPath;
-        }
-      }
+      // Use direct navigation instead of Next.js router
+      window.location.href = targetPath
     } catch (err) {
-      console.error('Login error:', err);
-      setError('Error during login process. Please try again.');
+      console.error('Login error:', err)
+      setError('Error during login process. Please try again.')
     }
-  };
+  }
 
   return (
     <div className="space-y-8 p-8 bg-white rounded-lg shadow">
