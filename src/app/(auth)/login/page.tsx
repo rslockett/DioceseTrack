@@ -144,26 +144,18 @@ const Page: React.FC<PageProps> = () => {
   const handleSuccessfulLogin = (userData: any) => {
     try {
       console.log('=== LOGIN PROCESS START ===');
-      console.log('User data:', userData);
       
+      // Store user data
       const userJson = JSON.stringify(userData);
       safeStorage.setItem('currentUser', userJson);
-      console.log('Stored in localStorage:', safeStorage.getItem('currentUser'));
-      
       document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
-      console.log('Cookie set:', document.cookie);
       
+      // Determine target path
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
-      console.log('Target path:', targetPath);
+      console.log('Navigating to:', targetPath);
       
-      // Force navigation after a small delay
-      setTimeout(() => {
-        const fullUrl = window.location.origin + targetPath;
-        console.log('Attempting navigation to:', fullUrl);
-        window.location.assign(fullUrl);
-      }, 100);
-      
-      console.log('=== LOGIN PROCESS END ===');
+      // Force immediate navigation
+      window.location.href = targetPath;
       
     } catch (err) {
       console.error('Login process error:', err);
