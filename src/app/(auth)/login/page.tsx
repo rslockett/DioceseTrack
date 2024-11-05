@@ -88,6 +88,22 @@ const Page: React.FC<PageProps> = () => {
     }
   }, [])
 
+  useEffect(() => {
+    // Check if we're stuck on login page with valid auth
+    const currentUser = safeStorage.getItem('currentUser');
+    if (currentUser) {
+      try {
+        const userData = JSON.parse(currentUser);
+        const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
+        if (window.location.pathname === '/login') {
+          window.location.href = targetPath;
+        }
+      } catch (err) {
+        console.error('Error checking auth state:', err);
+      }
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -139,7 +155,7 @@ const Page: React.FC<PageProps> = () => {
     }
   }
 
-  const handleSuccessfulLogin = (userData: any) => {
+  const handleSuccessfulLogin = async (userData: any) => {
     try {
       console.log('Starting login process...');
       const userJson = JSON.stringify(userData);
@@ -149,15 +165,22 @@ const Page: React.FC<PageProps> = () => {
       console.log('User role:', userData.role);
       console.log('Attempting navigation...');
       
-      // Use window.location.replace instead of window.location.href
-      if (userData.role === 'user') {
-        console.log('Navigating to /clergy');
-        window.location.replace('/clergy');
-      } else {
-        console.log('Navigating to /dashboard');
-        window.location.replace('/dashboard');
-      }
+      // Add a check for the current URL
+      const currentPath = window.location.pathname;
+      const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
       
+      if (currentPath === targetPath) {
+        // If we're already on the target page, force a reload
+        window.location.reload();
+      } else {
+        // Otherwise, try router first, then fallback to location
+        try {
+          await router.push(targetPath);
+        } catch (navError) {
+          console.log('Router navigation failed, using fallback...');
+          window.location.href = targetPath;
+        }
+      }
     } catch (err) {
       console.error('Login error:', err);
       setError('Error during login process. Please try again.');
