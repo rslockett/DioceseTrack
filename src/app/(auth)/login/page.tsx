@@ -155,18 +155,18 @@ const Page: React.FC<PageProps> = () => {
       
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
       console.log('Target path:', targetPath);
-      console.log('Current location:', window.location.href);
-      console.log('Full target URL:', window.location.origin + targetPath);
       
-      try {
-        window.location.replace(window.location.origin + targetPath);
-        console.log('Navigation attempted');
-      } catch (navError) {
-        console.error('Navigation error:', navError);
-        // Fallback navigation
-        console.log('Trying fallback navigation...');
-        window.location.href = targetPath;
-      }
+      // Use router for initial attempt
+      router.push(targetPath).catch((routerError) => {
+        console.error('Router navigation failed:', routerError);
+        
+        // Fallback to window.location with a slight delay
+        setTimeout(() => {
+          const fullUrl = window.location.origin + targetPath;
+          console.log('Attempting fallback navigation to:', fullUrl);
+          window.location.href = fullUrl;
+        }, 100);
+      });
       
       console.log('=== LOGIN PROCESS END ===');
       
