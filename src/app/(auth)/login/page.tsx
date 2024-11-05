@@ -149,16 +149,14 @@ const Page: React.FC<PageProps> = () => {
       console.log('User role:', userData.role);
       console.log('Attempting navigation...');
       
-      // Force a small delay before navigation
-      setTimeout(() => {
-        if (userData.role === 'user') {
-          console.log('Navigating to /clergy');
-          window.location.href = '/clergy';
-        } else {
-          console.log('Navigating to /dashboard');
-          window.location.href = '/dashboard';
-        }
-      }, 100);
+      // Use window.location.replace instead of window.location.href
+      if (userData.role === 'user') {
+        console.log('Navigating to /clergy');
+        window.location.replace('/clergy');
+      } else {
+        console.log('Navigating to /dashboard');
+        window.location.replace('/dashboard');
+      }
       
     } catch (err) {
       console.error('Login error:', err);
