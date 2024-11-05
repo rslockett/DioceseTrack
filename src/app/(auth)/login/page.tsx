@@ -144,6 +144,7 @@ const Page: React.FC<PageProps> = () => {
   const handleSuccessfulLogin = (userData: any) => {
     try {
       console.log('=== LOGIN PROCESS START ===');
+      alert('Login process started');
       
       // Store user data
       const userJson = JSON.stringify(userData);
@@ -153,16 +154,16 @@ const Page: React.FC<PageProps> = () => {
       // Determine target path
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
       console.log('Navigating to:', targetPath);
+      alert(`Navigating to: ${targetPath}`);
       
       // Use router for navigation
-      try {
-        router.push(targetPath);
-        console.log('Navigation successful');
-      } catch (err) {
-        console.error('Router navigation failed:', err);
-        // Fallback to window.location
-        window.location.href = targetPath;
-      }
+      router.push(targetPath);
+      console.log('Navigation successful');
+      alert('Navigation successful');
+      
+      // Force a re-render or state update
+      setEmail('');
+      setPassword('');
       
     } catch (err) {
       console.error('Login process error:', err);
