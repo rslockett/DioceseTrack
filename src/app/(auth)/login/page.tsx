@@ -28,6 +28,26 @@ const DIOCESE_ADMIN = {
   dateCreated: new Date().toISOString()
 };
 
+const safeStorage = {
+  getItem: (key: string) => {
+    try {
+      return localStorage.getItem(key)
+    } catch (error) {
+      console.error('Error accessing localStorage:', error)
+      return null
+    }
+  },
+  setItem: (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value)
+      return true
+    } catch (error) {
+      console.error('Error writing to localStorage:', error)
+      return false
+    }
+  }
+}
+
 const Page: React.FC<PageProps> = () => {
   const router = useRouter()
   const [showPassword, setShowPassword] = React.useState(false)
@@ -36,24 +56,35 @@ const Page: React.FC<PageProps> = () => {
   const [error, setError] = React.useState('')
   const [showSignup, setShowSignup] = useState(false)
 
-  // Initialize admin accounts in localStorage if they don't exist
   useEffect(() => {
-    const users = JSON.parse(localStorage.getItem('userAuth') || '[]')
-    let updated = false
+    try {
+      console.log('Initializing admin accounts...')
+      const users = JSON.parse(safeStorage.getItem('userAuth') || '[]')
+      let updated = false
 
-    if (!users.some(user => user.email === SYSTEM_ADMIN.email)) {
-      users.push(SYSTEM_ADMIN)
-      updated = true
-    }
+      if (!users.some(user => user.email === SYSTEM_ADMIN.email)) {
+        users.push(SYSTEM_ADMIN)
+        updated = true
+        console.log('Added system admin')
+      }
 
-    if (!users.some(user => user.email === DIOCESE_ADMIN.email)) {
-      users.push(DIOCESE_ADMIN)
-      updated = true
-    }
+      if (!users.some(user => user.email === DIOCESE_ADMIN.email)) {
+        users.push(DIOCESE_ADMIN)
+        updated = true
+        console.log('Added diocese admin')
+      }
 
-    if (updated) {
-      localStorage.setItem('userAuth', JSON.stringify(users))
-      console.log('Admin accounts initialized')
+      if (updated) {
+        const success = safeStorage.setItem('userAuth', JSON.stringify(users))
+        if (success) {
+          console.log('Successfully initialized admin accounts')
+        } else {
+          setError('Error initializing system. Please try again.')
+        }
+      }
+    } catch (err) {
+      console.error('Initialization error:', err)
+      setError('Error initializing system. Please refresh the page.')
     }
   }, [])
 
@@ -61,41 +92,50 @@ const Page: React.FC<PageProps> = () => {
     e.preventDefault()
     setError('')
 
-    console.log('=== LOGIN ATTEMPT ===')
-    console.log('Email:', email)
+    if (!email || !password) {
+      setError('Please enter both email and password')
+      return
+    }
+
+    console.log('Login attempt:', { email })
 
     try {
-      // Check for system administrator
-      if (email === 'system@administrator.com' && password === 'admin1234') {
+      if (email === SYSTEM_ADMIN.email && password === 'admin1234') {
+        console.log('System admin login successful')
         handleSuccessfulLogin(SYSTEM_ADMIN)
         return
       }
 
-      // Check for diocese administrator
-      if (email === 'admin@diocesetrack.com' && password === 'admin123') {
+      if (email === DIOCESE_ADMIN.email && password === 'admin123') {
+        console.log('Diocese admin login successful')
         handleSuccessfulLogin(DIOCESE_ADMIN)
         return
       }
 
-      // Check regular user credentials
-      const loginCredentials = JSON.parse(localStorage.getItem('loginCredentials') || '[]');
-      const userCredential = loginCredentials.find(cred => cred.email === email && cred.password === password);
+      const loginCredentials = JSON.parse(safeStorage.getItem('loginCredentials') || '[]')
+      const userCredential = loginCredentials.find(cred => 
+        cred.email === email && cred.password === password
+      )
 
-      if (userCredential) {
-        // Get user data
-        const users = JSON.parse(localStorage.getItem('userAuth') || '[]');
-        const userData = users.find(user => user.id === userCredential.userId);
-
-        if (userData) {
-          handleSuccessfulLogin(userData);
-          return;
-        }
+      if (!userCredential) {
+        setError('Invalid email or password')
+        return
       }
 
-      setError('Invalid email or password')
+      const users = JSON.parse(safeStorage.getItem('userAuth') || '[]')
+      const userData = users.find(user => user.id === userCredential.userId)
+
+      if (!userData) {
+        setError('User account not found')
+        return
+      }
+
+      console.log('Regular user login successful')
+      handleSuccessfulLogin(userData)
+
     } catch (err) {
       console.error('Login error:', err)
-      setError('An error occurred during login')
+      setError('An unexpected error occurred. Please try again.')
     }
   }
 
@@ -104,7 +144,6 @@ const Page: React.FC<PageProps> = () => {
     localStorage.setItem('currentUser', userJson);
     document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
     
-    // Direct users based on role
     if (userData.role === 'user') {
       router.push('/clergy');
     } else {
