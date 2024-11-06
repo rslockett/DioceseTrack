@@ -8,14 +8,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check for auth in headers
+  // Check for auth in headers and localStorage
   const userAuth = request.headers.get('x-user-auth');
   
-  // If no auth header, check localStorage on client side
   if (!userAuth) {
-    const response = NextResponse.redirect(new URL('/login', request.url));
-    response.headers.set('x-middleware-rewrite', 'true');
-    return response;
+    // Get base URL from request
+    const baseUrl = request.nextUrl.origin || 'http://localhost:3000'
+    return NextResponse.redirect(`${baseUrl}/login`)
   }
 
   return NextResponse.next()
