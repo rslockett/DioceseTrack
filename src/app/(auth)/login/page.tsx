@@ -178,7 +178,7 @@ const Page: React.FC<PageProps> = () => {
       console.log('Navigating to:', targetPath);
       
       // Use router for navigation
-      router.push(targetPath);
+      window.location.href = targetPath;
       
     } catch (err) {
       console.error('Login process error:', err);
