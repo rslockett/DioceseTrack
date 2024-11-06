@@ -9,13 +9,16 @@ export function middleware(request: NextRequest) {
   }
 
   // Check for user session
-  const userCookie = request.cookies.get('currentUser')
+  const userAuth = request.cookies.get('currentUser')?.value || 
+                  request.headers.get('x-user-auth') || 
+                  null;
+
   console.log('Checking auth:', {
     path: request.nextUrl.pathname,
-    hasCookie: !!userCookie?.value,
-    cookieValue: userCookie?.value
+    hasAuth: !!userAuth,
+    headers: Object.fromEntries(request.headers.entries())
   });
-  if (!userCookie?.value) {
+  if (!userAuth) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 

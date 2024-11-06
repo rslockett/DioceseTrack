@@ -167,21 +167,18 @@ const Page: React.FC<PageProps> = () => {
     try {
       console.log('=== LOGIN PROCESS START ===');
       
-      // Store user data
+      // Store user data in both db and localStorage
       await db.set('currentUser', userData);
+      localStorage.setItem('currentUser', JSON.stringify(userData));
       
-      // Set cookie with specific attributes
-      const cookieValue = encodeURIComponent(JSON.stringify(userData));
-      document.cookie = `currentUser=${cookieValue}; path=/; max-age=86400; samesite=lax`;
-      
-      // Verify cookie was set
-      console.log('Cookie after setting:', document.cookie);
+      // Verify storage
+      console.log('LocalStorage after setting:', localStorage.getItem('currentUser'));
       
       // Determine target path
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
       console.log('Navigating to:', targetPath);
       
-      // Small delay to ensure cookie is set before navigation
+      // Navigate after small delay
       setTimeout(() => {
         window.location.href = targetPath;
       }, 100);
