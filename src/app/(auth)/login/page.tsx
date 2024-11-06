@@ -154,20 +154,18 @@ const Page: React.FC<PageProps> = () => {
     try {
       console.log('=== LOGIN PROCESS START ===');
       
-      // Store user data using db abstraction
-      const success = await db.set('currentUser', userData);
-      if (!success) {
-        throw new Error('Failed to save user data');
-      }
+      // Store user data
+      await db.set('currentUser', userData);
       
+      // Set cookie
       document.cookie = `currentUser=${encodeURIComponent(JSON.stringify(userData))}; path=/`;
       
       // Determine target path
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
       console.log('Navigating to:', targetPath);
       
-      // Force navigation
-      window.location.href = targetPath;
+      // Use router for navigation
+      router.push(targetPath);
       
     } catch (err) {
       console.error('Login process error:', err);
