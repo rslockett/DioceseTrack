@@ -1,21 +1,16 @@
-import { Database } from "@replit/database"
-
 class StorageService {
-  private db: Database | null = null
   private isReplit: boolean
 
   constructor() {
     this.isReplit = typeof window === 'undefined' || !!process.env.REPL_ID
-    if (this.isReplit) {
-      this.db = new Database()
-    }
   }
 
   async getItem(key: string): Promise<string | null> {
     try {
       if (this.isReplit) {
-        const value = await this.db!.get(key)
-        return value ? String(value) : null
+        const response = await fetch(`/api/storage/get?key=${key}`)
+        const data = await response.json()
+        return data.value
       } else {
         return localStorage.getItem(key)
       }
@@ -28,11 +23,18 @@ class StorageService {
   async setItem(key: string, value: string): Promise<boolean> {
     try {
       if (this.isReplit) {
-        await this.db!.set(key, value)
+        const response = await fetch('/api/storage/set', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ key, value }),
+        })
+        return response.ok
       } else {
         localStorage.setItem(key, value)
+        return true
       }
-      return true
     } catch (error) {
       console.error('Storage error:', error)
       return false
