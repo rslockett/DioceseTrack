@@ -4,6 +4,7 @@ import type { Parish } from '@/types/parish';
 import { Plus, Download, MapPin, Phone, Mail, Users, Building, Edit, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { AddParishForm } from './components/AddParishForm';
+import { db } from '@/lib/db';
 
 interface ParishCardProps {
   parish: Parish;
@@ -354,12 +355,12 @@ const ParishesPage = () => {
   );
 };
 
-// Add this function in the same file as handleSaveParish
-const syncDeaneryParishes = () => {
+// Update the syncDeaneryParishes function
+const syncDeaneryParishes = async () => {
   try {
-    // Get current data
-    const deaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
-    const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
+    // Get current data from database using db abstraction
+    const deaneries = await db.get('deaneries') || [];
+    const parishes = await db.get('parishes') || [];
 
     console.log('1. Syncing deaneries with parishes');
     console.log('Current deaneries:', deaneries);
@@ -383,8 +384,8 @@ const syncDeaneryParishes = () => {
 
     console.log('2. Updated deaneries:', updatedDeaneries);
 
-    // Save updated deaneries
-    localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
+    // Save updated deaneries to database
+    await db.set('deaneries', updatedDeaneries);
     return updatedDeaneries;
   } catch (error) {
     console.error('Error syncing deanery parishes:', error);

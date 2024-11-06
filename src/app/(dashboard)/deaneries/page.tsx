@@ -155,11 +155,12 @@ const DeaneriesPage = () => {
     }
   }, []);
 
-  const handleSaveDeanery = (deaneryData: Deanery) => {
+  const handleSaveDeanery = async (deaneryData: Deanery) => {
     try {
-      const existingDeaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
-      const existingParishes = JSON.parse(localStorage.getItem('parishes') || '[]');
-      const existingClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+      // Get current data using db abstraction
+      const existingDeaneries = await db.get('deaneries') || [];
+      const existingParishes = await db.get('parishes') || [];
+      const existingClergy = await db.get('clergy') || [];
 
       // Update parishes with the new deaneryId
       const updatedParishes = existingParishes.map(parish => {
@@ -188,27 +189,18 @@ const DeaneriesPage = () => {
         deaneryData.deanName = deanFromParishes.name;
       }
 
-      // Save everything
-      localStorage.setItem('parishes', JSON.stringify(updatedParishes));
+      // Save everything using db abstraction
+      await db.set('parishes', updatedParishes);
+      await db.set('deaneries', [
+        ...existingDeaneries.filter(d => d.id !== deaneryData.id),
+        deaneryData
+      ]);
 
-      if (deaneryData.id) {
-        const updatedDeaneries = existingDeaneries.map(deanery =>
-          deanery.id === deaneryData.id ? { ...deanery, ...deaneryData } : deanery
-        );
-        localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
-        setDeaneryList(updatedDeaneries);
-      } else {
-        const newDeanery = {
-          ...deaneryData,
-          id: crypto.randomUUID()
-        };
-        const updatedDeaneries = [...existingDeaneries, newDeanery];
-        localStorage.setItem('deaneries', JSON.stringify(updatedDeaneries));
-        setDeaneryList(updatedDeaneries);
-      }
-
-      setShowAddForm(false);
-      setEditingDeanery(null);
+      // Update UI state
+      setDeaneryList(prevDeaneries => [
+        ...prevDeaneries.filter(d => d.id !== deaneryData.id),
+        deaneryData
+      ]);
     } catch (error) {
       console.error('Error saving deanery:', error);
     }

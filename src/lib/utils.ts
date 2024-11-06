@@ -5,6 +5,9 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Remove the isProduction check for now
+export const isProduction = false;
+
 // Add this interface for Event type
 interface Event {
   id?: string;

@@ -10,6 +10,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
+import { db } from '@/lib/db'
 
 interface AddParishFormProps {
   initialData?: Parish;
@@ -68,65 +69,38 @@ export function AddParishForm({ initialData, onClose, onSave, onDelete }: AddPar
   });
 
   useEffect(() => {
-    try {
-      const storedDeaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
-      console.log('Loaded deaneries:', storedDeaneries);
-      
-      const storedClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-      console.log('Raw clergy data:', storedClergy);
-      
-      setDeaneries(storedDeaneries);
-
-      const formattedClergy = storedClergy.map(person => {
-        console.log('Processing clergy member:', person);
-        return {
-          id: person.id,
-          name: person.name || `${person.firstName} ${person.lastName}`.trim(),
-          role: person.role || person.type
-        };
-      });
-      
-      console.log('Final formatted clergy:', formattedClergy);
-      setClergy(formattedClergy);
-
-      if (initialData) {
-        setFormData(initialData);
+    const loadData = async () => {
+      try {
+        const storedDeaneries = await db.get('deaneries') || [];
+        console.log('Loaded deaneries:', storedDeaneries);
+        
+        const storedClergy = await db.get('clergy') || [];
+        console.log('Raw clergy data:', storedClergy);
+        
+        setDeaneries(storedDeaneries);
+        
+        const formattedClergy = storedClergy.map(person => {
+          console.log('Processing clergy member:', person);
+          return {
+            id: person.id,
+            name: person.name || `${person.firstName} ${person.lastName}`.trim(),
+            role: person.role || person.type
+          };
+        });
+        
+        console.log('Final formatted clergy:', formattedClergy);
+        setClergy(formattedClergy);
+        
+        if (initialData) {
+          setFormData(initialData);
+        }
+      } catch (error) {
+        console.error('Error in useEffect:', error);
+        console.error('Error details:', error);
       }
-    } catch (error) {
-      console.error('Error in useEffect:', error);
-      console.error('Error details:', {
-        storedClergy: localStorage.getItem('clergy'),
-        parseError: error
-      });
-    }
-  }, [initialData]);
+    };
 
-  useEffect(() => {
-    try {
-      const storedClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-      console.log('Loading clergy data:', storedClergy);
-      
-      // Format clergy data
-      const formattedClergy = storedClergy.map(person => ({
-        id: person.id,
-        name: person.name || `${person.firstName} ${person.lastName}`.trim(),
-        type: person.type,
-        role: person.role
-      }));
-      
-      setClergy(formattedClergy);
-
-      // Set initial assigned clergy if editing
-      if (initialData?.assignedClergy) {
-        console.log('Setting initial assigned clergy:', initialData.assignedClergy);
-        setFormData(prev => ({
-          ...prev,
-          assignedClergy: initialData.assignedClergy.map(c => c.id)
-        }));
-      }
-    } catch (error) {
-      console.error('Error loading clergy data:', error);
-    }
+    loadData();
   }, [initialData]);
 
   const handleDeanerySelect = (selectedDeanery) => {

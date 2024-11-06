@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { db } from '@/lib/db'
 
 interface FormData {
   clergyType: string
@@ -11,7 +12,11 @@ interface FormData {
   confirmPassword: string
 }
 
-export default function UserCreateForm({ onSuccess }: { onSuccess?: () => void }) {
+interface UserCreateFormProps {
+  onSuccess: (newUser: UserAuth, newClergy: any) => void;
+}
+
+export default function UserCreateForm({ onSuccess }: UserCreateFormProps) {
   const [formData, setFormData] = useState<FormData>({
     clergyType: 'Priest',
     prefix: 'Fr.',
@@ -44,11 +49,20 @@ export default function UserCreateForm({ onSuccess }: { onSuccess?: () => void }
       return
     }
 
+    if (!formData.name.includes(' ')) {
+      alert("Please enter both first and last name")
+      return
+    }
+
     try {
       const userId = crypto.randomUUID()
       const [firstName, ...lastNameParts] = formData.name.split(' ')
       const lastName = lastNameParts.join(' ')
       
+      if (!firstName || !lastName) {
+        throw new Error('Invalid name format')
+      }
+
       // Create user record
       const newUser = {
         id: userId,
@@ -76,25 +90,25 @@ export default function UserCreateForm({ onSuccess }: { onSuccess?: () => void }
         patronSaintDay: { date: '', saint: '' }
       }
 
-      // Create login credentials
-      const loginCredentials = {
-        email: formData.email,
-        password: formData.password,
-        userId: userId
-      }
-
       // Get existing records
-      const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]')
-      const existingClergy = JSON.parse(localStorage.getItem('clergy') || '[]')
-      const existingCredentials = JSON.parse(localStorage.getItem('loginCredentials') || '[]')
+      const existingUsers = await db.get('userAuth') || []
+      const existingClergy = await db.get('clergy') || []
+      const existingCredentials = await db.get('loginCredentials') || []
 
       // Save everything
-      localStorage.setItem('userAuth', JSON.stringify([...existingUsers, newUser]))
-      localStorage.setItem('clergy', JSON.stringify([...existingClergy, newClergy]))
-      localStorage.setItem('loginCredentials', JSON.stringify([...existingCredentials, loginCredentials]))
+      await Promise.all([
+        db.set('userAuth', [...existingUsers, newUser]),
+        db.set('clergy', [...existingClergy, newClergy]),
+        db.set('loginCredentials', [...existingCredentials, {
+          userId: userId,
+          email: formData.email,
+          password: formData.password
+        }])
+      ])
 
-      alert('Account created successfully!')
-      if (onSuccess) onSuccess()
+      // Call onSuccess with new records
+      onSuccess(newUser, newClergy)
+      
     } catch (error) {
       console.error('Error creating account:', error)
       alert('Error creating account. Please try again.')

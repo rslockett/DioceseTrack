@@ -59,108 +59,105 @@ export interface EventReminder {
 export interface Settings {
   general: {
     dioceseName: string;
-    diocese_address?: string;
-    bishop?: string;
-    contactEmail?: string;
-    contactPhone?: string;
     timezone: string;
   };
   notifications: {
     emailNotifications: boolean;
-    reminderDefault: number;  // minutes before event
-    defaultReminderType: 'alert' | 'reminder';
+    reminderDefault: number;
+    defaultReminderType: string;
   };
   display: {
-    defaultCalendarView: 'month' | 'week' | 'day';
-    theme: 'light' | 'dark' | 'system';
+    defaultCalendarView: string;
+    theme: string;
     language: string;
   };
   security: {
-    sessionTimeout?: number;
-    lastBackup?: Date;
-    dataRetentionDays?: number;
+    sessionTimeout: number;
+    dataRetentionDays: number;
   };
 }
 
 // Storage management functions
+import { getDatabase } from './db';
+const db = getDatabase();
+
 export const storage = {
   // Clergy functions
-  getClergyList: (): Clergy[] => {
-    const data = localStorage.getItem('clergyData');
-    return data ? JSON.parse(data) : [];
+  getClergyList: async (): Promise<Clergy[]> => {
+    const data = await db.get('clergyData');
+    return data || [];
   },
 
-  addClergy: (clergy: Omit<Clergy, 'id'>) => {
-    const currentList = storage.getClergyList();
+  addClergy: async (clergy: Omit<Clergy, 'id'>) => {
+    const currentList = await storage.getClergyList();
     const newClergy = {
       ...clergy,
       id: crypto.randomUUID()
     };
-    localStorage.setItem('clergyData', JSON.stringify([...currentList, newClergy]));
+    await db.set('clergyData', [...currentList, newClergy]);
     return newClergy;
   },
 
   // Parish functions
-  getParishList: (): Parish[] => {
-    const data = localStorage.getItem('parishData');
-    return data ? JSON.parse(data) : [];
+  getParishList: async (): Promise<Parish[]> => {
+    const data = await db.get('parishData');
+    return data || [];
   },
 
-  addParish: (parish: Omit<Parish, 'id'>) => {
-    const currentList = storage.getParishList();
+  addParish: async (parish: Omit<Parish, 'id'>) => {
+    const currentList = await storage.getParishList();
     const newParish = {
       ...parish,
       id: crypto.randomUUID()
     };
-    localStorage.setItem('parishData', JSON.stringify([...currentList, newParish]));
+    await db.set('parishData', [...currentList, newParish]);
     return newParish;
   },
 
   // Document functions
-  getDocumentList: (): Document[] => {
-    const data = localStorage.getItem('documentData');
-    return data ? JSON.parse(data) : [];
+  getDocumentList: async (): Promise<Document[]> => {
+    const data = await db.get('documentData');
+    return data || [];
   },
 
-  addDocument: (document: Omit<Document, 'id'>) => {
-    const currentList = storage.getDocumentList();
+  addDocument: async (document: Omit<Document, 'id'>) => {
+    const currentList = await storage.getDocumentList();
     const newDocument = {
       ...document,
       id: crypto.randomUUID()
     };
-    localStorage.setItem('documentData', JSON.stringify([...currentList, newDocument]));
+    await db.set('documentData', [...currentList, newDocument]);
     return newDocument;
   },
 
   // Calendar functions
-  getEvents: (): CalendarEvent[] => {
-    const data = localStorage.getItem('calendarEvents');
-    return data ? JSON.parse(data) : [];
+  getEvents: async (): Promise<CalendarEvent[]> => {
+    const data = await db.get('calendarEvents');
+    return data || [];
   },
 
-  addEvent: (event: Omit<CalendarEvent, 'id'>) => {
-    const currentEvents = storage.getEvents();
+  addEvent: async (event: Omit<CalendarEvent, 'id'>) => {
+    const currentEvents = await storage.getEvents();
     const newEvent = {
       ...event,
       id: crypto.randomUUID()
     };
-    localStorage.setItem('calendarEvents', JSON.stringify([...currentEvents, newEvent]));
+    await db.set('calendarEvents', [...currentEvents, newEvent]);
     return newEvent;
   },
 
-  updateEvent: (id: string, updates: Partial<CalendarEvent>) => {
-    const currentEvents = storage.getEvents();
+  updateEvent: async (id: string, updates: Partial<CalendarEvent>) => {
+    const currentEvents = await storage.getEvents();
     const updatedEvents = currentEvents.map(event => 
       event.id === id ? { ...event, ...updates } : event
     );
-    localStorage.setItem('calendarEvents', JSON.stringify(updatedEvents));
+    await db.set('calendarEvents', updatedEvents);
   },
 
   // Settings functions
-  getSettings: (): Settings => {
-    const data = localStorage.getItem('settings');
+  getSettings: async (): Promise<Settings> => {
+    const data = await db.get('settings');
     if (!data) {
-      // Return default settings
       const defaultSettings: Settings = {
         general: {
           dioceseName: '',
@@ -181,16 +178,16 @@ export const storage = {
           dataRetentionDays: 365
         }
       };
-      localStorage.setItem('settings', JSON.stringify(defaultSettings));
+      await db.set('settings', defaultSettings);
       return defaultSettings;
     }
-    return JSON.parse(data);
+    return data;
   },
 
-  updateSettings: (updates: Partial<Settings>) => {
-    const currentSettings = storage.getSettings();
+  updateSettings: async (updates: Partial<Settings>) => {
+    const currentSettings = await storage.getSettings();
     const newSettings = { ...currentSettings, ...updates };
-    localStorage.setItem('settings', JSON.stringify(newSettings));
+    await db.set('settings', newSettings);
     return newSettings;
   }
 }; 

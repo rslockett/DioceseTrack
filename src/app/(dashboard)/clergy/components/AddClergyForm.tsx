@@ -6,6 +6,7 @@ import { DeleteDialog } from './DeleteDialog'
 import { Label } from '@/components/ui/label'
 import { cn } from "@/lib/utils"
 import { ImageCropper } from './ImageCropper'
+import { db } from '@/lib/db'
 
 interface AddClergyFormProps {
   initialData?: Clergy;
@@ -120,26 +121,10 @@ const DEFAULT_CLERGY_ROLES = [
 export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddClergyFormProps) {
   console.log('Form initialData:', initialData);
 
-  const [formData, setFormData] = useState<Clergy>(() => ({
-    id: initialData?.id || crypto.randomUUID(),
-    name: initialData?.name || '',
-    type: initialData?.type || 'Priest',
-    status: initialData?.status || 'Active',
-    email: initialData?.email || '',
-    phone: initialData?.phone || '',
-    currentAssignment: initialData?.currentAssignment || '',
-    deaneryId: initialData?.deaneryId || '',
-    deaneryName: initialData?.deaneryName || '',
-    ordinationDate: initialData?.ordinationDate || '',
-    birthday: initialData?.birthday || '',
-    nameDay: initialData?.nameDay || '',
-    patronSaintDay: initialData?.patronSaintDay || { date: '', saint: '' },
-    spouse: initialData?.spouse || null,
-    children: initialData?.children || [],
-    profileImage: initialData?.profileImage || '',
-    role: initialData?.role || '',
-    dateCreated: initialData?.dateCreated || new Date().toISOString(),
-  }));
+  const [formData, setFormData] = useState<Partial<Clergy>>({
+    ...initialData,
+    currentAssignment: initialData?.currentAssignment || ''
+  });
 
   const [profileImage, setProfileImage] = useState(initialData?.profileImage || '');
   const [children, setChildren] = useState(initialData?.children || []);
@@ -148,9 +133,7 @@ export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddCle
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const [assignmentType, setAssignmentType] = useState<AssignmentType>(
-    initialData?.currentAssignment ? 'Parish' : 'Other'
-  );
+  const [assignmentType, setAssignmentType] = useState<AssignmentType>('Other');
   const [selectedDeaneryId, setSelectedDeaneryId] = useState(initialData?.deaneryId || '');
   const [deaneries, setDeaneries] = useState<Array<{ id: string; name: string }>>([]);
   const [parishes, setParishes] = useState<Array<{ id: string; name: string; deaneryId: string }>>([]);
@@ -170,16 +153,20 @@ export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddCle
   const [CLERGY_ROLES, setClergyClergyRoles] = useState<string[]>([]);
 
   useEffect(() => {
-    try {
-      const storedDeaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
-      const storedParishes = JSON.parse(localStorage.getItem('parishes') || '[]');
-      setDeaneries(storedDeaneries);
-      setParishes(storedParishes);
-    } catch (error) {
-      console.error('Error loading deaneries/parishes:', error);
-      setDeaneries([]);
-      setParishes([]);
-    }
+    const loadData = async () => {
+      try {
+        const storedDeaneries = await db.get('deaneries') || [];
+        const storedParishes = await db.get('parishes') || [];
+        setDeaneries(storedDeaneries);
+        setParishes(storedParishes);
+      } catch (error) {
+        console.error('Error loading deaneries/parishes:', error);
+        setDeaneries([]);
+        setParishes([]);
+      }
+    };
+
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -257,29 +244,60 @@ export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddCle
     console.log('Current profile image:', profileImage);
   }, [formData, profileImage]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const completeData: Clergy = {
-      ...formData,
-      type: formData.type, // Preserve clergy type
-      profileImage, // Preserve profile image
-      children: showChildren ? children : [],
-      spouse: showSpouse ? formData.spouse : null,
-      lastUpdated: new Date().toISOString(),
-      assignmentType: assignmentType
-    };
-
-    // Save to localStorage directly to ensure persistence
-    const existingClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
-    const updatedClergy = completeData.id
-      ? existingClergy.map(c => c.id === completeData.id ? completeData : c)
-      : [...existingClergy, completeData];
     
-    localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+    try {
+      const completeData: Clergy = {
+        ...formData,
+        type: formData.type,
+        profileImage,
+        children: showChildren ? children : [],
+        spouse: showSpouse ? formData.spouse : null,
+        lastUpdated: new Date().toISOString(),
+        assignmentType: assignmentType
+      };
 
-    // Call the parent's onSave
-    onSave(completeData);
+      // Get current data
+      const existingClergy = await db.get('clergy') || [];
+      const existingUsers = await db.get('userAuth') || [];
+      const existingCredentials = await db.get('loginCredentials') || [];
+
+      // Find associated user
+      const associatedUser = existingUsers.find(u => u.clergyId === completeData.id);
+
+      // Update or create clergy
+      const updatedClergy = completeData.id
+        ? existingClergy.map(c => c.id === completeData.id ? completeData : c)
+        : [...existingClergy, completeData];
+      
+      // Update users and credentials if user exists
+      if (associatedUser) {
+        await Promise.all([
+          db.set('clergy', updatedClergy),
+          db.set('userAuth', existingUsers.map(u => 
+            u.id === associatedUser.id 
+              ? { ...u, email: completeData.email }
+              : u
+          )),
+          db.set('loginCredentials', existingCredentials.map(c =>
+            c.userId === associatedUser.id
+              ? { ...c, email: completeData.email }
+              : c
+          ))
+        ]);
+      } else {
+        await db.set('clergy', updatedClergy);
+      }
+
+      // Call onSave with the complete data
+      onSave(completeData);
+      
+      // Call onClose after successful save
+      onClose();
+    } catch (error) {
+      console.error('Error saving clergy:', error);
+    }
   };
 
   const addChild = () => {
@@ -319,9 +337,8 @@ export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddCle
   };
 
   // Add this function to handle assignment changes
-  const handleAssignmentChange = (deaneryId: string, parishName: string) => {
-    // First get the deanery details
-    const deaneries = JSON.parse(localStorage.getItem('deaneries') || '[]');
+  const handleAssignmentChange = async (deaneryId: string, parishName: string) => {
+    const deaneries = await db.get('deaneries') || [];
     const selectedDeanery = deaneries.find(d => d.id === deaneryId);
     
     setFormData(prev => ({
@@ -401,6 +418,66 @@ export function AddClergyForm({ initialData, onClose, onSave, onDelete }: AddCle
       type: e.target.value
     }));
   };
+
+  useEffect(() => {
+    const loadParishData = async () => {
+      if (!selectedDeaneryId) {
+        setParishes([]);
+        return;
+      }
+      
+      // Get parishes from database instead of localStorage
+      const allParishes = await db.get('parishes') || [];
+      const deaneryParishes = allParishes.filter(
+        parish => parish.deaneryId === selectedDeaneryId
+      );
+      
+      setParishes(deaneryParishes);
+    };
+
+    loadParishData();
+  }, [selectedDeaneryId]);
+
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        // Get roles from database
+        const storedRoles = await db.get('clergyRoles');
+        let rolesArray = DEFAULT_CLERGY_ROLES;
+        
+        if (storedRoles) {
+          // If we have stored roles, use them but ensure defaults are included
+          rolesArray = Array.from(new Set([
+            ...DEFAULT_CLERGY_ROLES,
+            ...storedRoles
+          ]));
+        } else {
+          // If no stored roles, save the defaults
+          await db.set('clergyRoles', DEFAULT_CLERGY_ROLES);
+        }
+        
+        setRoles(rolesArray);
+        setClergyClergyRoles(rolesArray);
+        
+        console.log('Loaded clergy roles:', rolesArray);
+      } catch (error) {
+        console.error('Error loading clergy roles:', error);
+        setRoles([...DEFAULT_CLERGY_ROLES]);
+        setClergyClergyRoles([...DEFAULT_CLERGY_ROLES]);
+      }
+    };
+
+    loadRoles();
+  }, []);
+
+  useEffect(() => {
+    if (initialData?.currentAssignment && parishes.length > 0) {
+      const isParishAssignment = parishes.some(
+        parish => parish.name === initialData.currentAssignment
+      );
+      setAssignmentType(isParishAssignment ? 'Parish' : 'Other');
+    }
+  }, [initialData, parishes]);
 
   return (
     <div className="bg-white rounded-lg shadow-lg">

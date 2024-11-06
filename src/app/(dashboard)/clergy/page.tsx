@@ -10,6 +10,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { AddClergyForm } from './components/AddClergyForm';
 import { MapLink } from '@/components/MapLink';
+import { db } from '@/lib/db'
 
 interface ClergyCardProps {
   clergy: Clergy;
@@ -255,27 +256,28 @@ const ClergyDirectory = () => {
   const [currentUser, setCurrentUser] = useState<any>(null)
 
   useEffect(() => {
-    try {
-      const currentUserStr = localStorage.getItem('currentUser')
-      const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null
-      
-      // Get all clergy records
-      const allClergy = JSON.parse(localStorage.getItem('clergy') || '[]')
-      
-      // Filter based on user role
-      if (currentUser?.role === 'user') {
-        // Clergy users only see their own record
-        const userClergy = allClergy.filter(clergy => 
-          clergy.email === currentUser.email
-        )
-        setClergyList(userClergy)
-      } else {
-        // Admin and staff see all records
-        setClergyList(allClergy)
+    const loadData = async () => {
+      try {
+        const currentUserStr = localStorage.getItem('currentUser')
+        const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null
+        
+        // Get all clergy records using db
+        const allClergy = await db.get('clergy') || []
+        
+        // Filter based on user role
+        if (currentUser?.role === 'user') {
+          const userClergy = allClergy.filter(clergy => 
+            clergy.email === currentUser.email
+          )
+          setClergyList(userClergy)
+        } else {
+          setClergyList(allClergy)
+        }
+      } catch (error) {
+        console.error('Error loading clergy:', error)
       }
-    } catch (error) {
-      console.error('Error loading clergy:', error)
     }
+    loadData()
   }, [])
 
   useEffect(() => {
@@ -298,45 +300,17 @@ const ClergyDirectory = () => {
 
   const handleSaveClergy = async (formData: Clergy) => {
     try {
-      console.log('1. Starting clergy save with:', formData);
+      // Get current data using db abstraction
+      const parishes = await db.get('parishes') || [];
+      const existingClergy = await db.get('clergy') || [];
       
       const processedData = {
         ...formData,
-        id: formData.id || crypto.randomUUID(),
-        dateCreated: new Date().toISOString(),
-        lastUpdated: new Date().toISOString()
+        id: formData.id || crypto.randomUUID()
       };
-      
-      // Update clergy list
-      const updatedClergyList = editingClergy
-        ? clergyList.map(c => c.id === editingClergy.id ? processedData : c)
-        : [...clergyList, processedData];
-
-      // If this is a new clergy (not editing), create corresponding user auth record
-      if (!editingClergy) {
-        console.log('2. Creating new user auth record');
-        const nameParts = processedData.name.split(' ');
-        const newUser = {
-          id: processedData.id,
-          firstName: nameParts[0],
-          lastName: nameParts.slice(1).join(' '),
-          email: processedData.email,
-          role: 'user',
-          status: 'active',
-          dateCreated: new Date().toISOString(),
-          clergyId: processedData.id
-        };
-
-        // Get existing users and add new one
-        const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]');
-        const updatedUsers = [...existingUsers, newUser];
-        console.log('3. Saving updated users:', updatedUsers);
-        localStorage.setItem('userAuth', JSON.stringify(updatedUsers));
-      }
 
       // Update parish assignment if changed
       if (processedData.currentAssignment) {
-        const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
         const updatedParishes = parishes.map(parish => {
           // Remove clergy from previous assignments
           if (parish.assignedClergy?.some(c => c.id === processedData.id)) {
@@ -365,20 +339,34 @@ const ClergyDirectory = () => {
           return parish;
         });
         
-        localStorage.setItem('parishes', JSON.stringify(updatedParishes));
+        await db.set('parishes', updatedParishes);
       }
 
       // Save clergy updates
-      localStorage.setItem('clergy', JSON.stringify(updatedClergyList));
-      console.log('5. Save completed');
-      
-      setClergyList(updatedClergyList);
+      const updatedClergyList = [
+        ...existingClergy.filter(c => c.id !== processedData.id),
+        processedData
+      ];
+      await db.set('clergy', updatedClergyList);
+
+      // Filter based on user role before updating state
+      const currentUserStr = localStorage.getItem('currentUser');
+      const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null;
+
+      if (currentUser?.role === 'user') {
+        const userClergy = updatedClergyList.filter(clergy => 
+          clergy.email === currentUser.email
+        );
+        setClergyList(userClergy);
+      } else {
+        setClergyList(updatedClergyList);
+      }
+
+      // Close the form
       setShowAddForm(false);
       setEditingClergy(null);
-
     } catch (error) {
       console.error('Error saving clergy:', error);
-      alert('There was an error saving the changes. Please try again.');
     }
   };
 
@@ -390,34 +378,39 @@ const ClergyDirectory = () => {
     hasValidName(clergy) && clergy.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleDelete = (clergyId: string) => {
+  const handleDelete = async (clergyId: string) => {
     try {
-      // Remove clergy record
-      const updatedClergy = clergyList.filter(c => c.id !== clergyId);
-      localStorage.setItem('clergy', JSON.stringify(updatedClergy));
+      // Get current data
+      const clergy = await db.get('clergy') || [];
+      const parishes = await db.get('parishes') || [];
+      const users = await db.get('userAuth') || [];
+      const credentials = await db.get('loginCredentials') || [];
       
-      // Remove clergy from parish assignments
-      const parishes = JSON.parse(localStorage.getItem('parishes') || '[]');
-      const updatedParishes = parishes.map(parish => ({
-        ...parish,
-        assignedClergy: (parish.assignedClergy || []).filter(c => c.id !== clergyId)
-      }));
-      localStorage.setItem('parishes', JSON.stringify(updatedParishes));
+      // Find user associated with clergy
+      const associatedUser = users.find(u => u.clergyId === clergyId);
       
-      // Remove associated user and credentials
-      const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]');
-      const existingCredentials = JSON.parse(localStorage.getItem('loginCredentials') || '[]');
+      // Update all collections
+      await Promise.all([
+        // Remove clergy record
+        db.set('clergy', clergy.filter(c => c.id !== clergyId)),
+        
+        // Remove clergy from parishes
+        db.set('parishes', parishes.map(parish => ({
+          ...parish,
+          assignedClergy: (parish.assignedClergy || []).filter(c => c.id !== clergyId)
+        }))),
+        
+        // Remove associated user
+        db.set('userAuth', users.filter(u => u.id !== associatedUser?.id)),
+        
+        // Remove associated credentials
+        db.set('loginCredentials', credentials.filter(c => c.userId !== associatedUser?.id))
+      ]);
       
-      const updatedUsers = existingUsers.filter(u => u.id !== clergyId);
-      const updatedCredentials = existingCredentials.filter(c => c.userId !== clergyId);
-      
-      localStorage.setItem('userAuth', JSON.stringify(updatedUsers));
-      localStorage.setItem('loginCredentials', JSON.stringify(updatedCredentials));
-      
-      setClergyList(updatedClergy);
+      // Update UI state
+      setClergyList(prevList => prevList.filter(c => c.id !== clergyId));
     } catch (error) {
       console.error('Error deleting clergy:', error);
-      alert('Error deleting clergy. Please try again.');
     }
   };
 

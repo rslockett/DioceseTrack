@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { parse } from 'papaparse'
 import UserCreateForm from '@/components/UserCreateForm'
+import { db } from '@/lib/db'
 
 interface UserAuth {
   id: string;
@@ -145,40 +146,23 @@ const SettingsPage = () => {
   }
 
   useEffect(() => {
-    const loadData = () => {
-      const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]');
-      const existingCredentials = JSON.parse(localStorage.getItem('loginCredentials') || '[]');
-      
-      let updatedUsers = [...existingUsers];
-      let updatedCredentials = [...existingCredentials];
-      let updated = false;
-
-      // Ensure both admin users exist
-      if (!updatedUsers.some(user => user.email === SYSTEM_ADMIN.email)) {
-        updatedUsers.push(SYSTEM_ADMIN);
-        updated = true;
+    const loadData = async () => {
+      try {
+        // Get data using db abstraction
+        const existingUsers = await db.get('userAuth') || [];
+        const existingCredentials = await db.get('loginCredentials') || [];
+        const existingDeaneries = await db.get('deaneries') || [];
+        const existingClergy = await db.get('clergy') || [];
+        
+        console.log('Loaded deaneries:', existingDeaneries); // Debug log
+        
+        setUsers(existingUsers);
+        setLoginCredentials(existingCredentials);
+        setDeaneries(existingDeaneries);
+        setClergyData(existingClergy);
+      } catch (error) {
+        console.error('Error loading data:', error);
       }
-
-      if (!updatedUsers.some(user => user.email === DIOCESE_ADMIN.email)) {
-        updatedUsers.push(DIOCESE_ADMIN);
-        updated = true;
-      }
-
-      // Ensure admin credentials exist
-      DEFAULT_ADMIN_CREDENTIALS.forEach(cred => {
-        if (!updatedCredentials.some(existing => existing.email === cred.email)) {
-          updatedCredentials.push(cred);
-          updated = true;
-        }
-      });
-
-      if (updated) {
-        localStorage.setItem('userAuth', JSON.stringify(updatedUsers));
-        localStorage.setItem('loginCredentials', JSON.stringify(updatedCredentials));
-      }
-
-      setUsers(updatedUsers);
-      setLoginCredentials(updatedCredentials);
     };
 
     loadData();
@@ -530,6 +514,10 @@ const SettingsPage = () => {
 
   // Add this filtering function before the return statement
   const filteredUsers = users.filter(user => {
+    if (!user || !user.firstName || !user.lastName || !user.email) {
+      return false;
+    }
+
     const matchesSearch = 
       `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -544,7 +532,6 @@ const SettingsPage = () => {
       (loginAccessFilter === 'has-access' && hasLoginAccess) ||
       (loginAccessFilter === 'no-access' && !hasLoginAccess)
 
-    // Add clergy type and deanery filtering
     const clergyRecord = clergyData.find(c => c.id === user.clergyId)
     const matchesClergyType = 
       clergyTypeFilter === 'all' || 
@@ -575,16 +562,15 @@ const SettingsPage = () => {
   // Add this function to properly handle clergy data when updating users
   const handleUpdateUser = async (userId: string, updates: Partial<UserAuth>) => {
     try {
-      const existingUsers = JSON.parse(localStorage.getItem('userAuth') || '[]');
-      const existingClergy = JSON.parse(localStorage.getItem('clergy') || '[]');
+      const existingUsers = await db.get('userAuth') || [];
 
       // Update user
       const updatedUsers = existingUsers.map(user => 
         user.id === userId ? { ...user, ...updates } : user
       );
 
-      // Don't modify clergy data when updating users
-      localStorage.setItem('userAuth', JSON.stringify(updatedUsers));
+      // Save updated users
+      await db.set('userAuth', updatedUsers);
       
       // Update state
       setUsers(updatedUsers);
@@ -679,6 +665,51 @@ const SettingsPage = () => {
     email: string;
     clergyType?: string;
   } | null>(null);
+
+  useEffect(() => {
+    const initializeAdminUser = async () => {
+      try {
+        // Get current users and credentials
+        const existingUsers = await db.get('userAuth') || [];
+        const existingCredentials = await db.get('loginCredentials') || [];
+        
+        // Check if admin exists
+        const adminExists = existingUsers.some(u => u.email === DIOCESE_ADMIN.email);
+        const adminCredentialsExist = existingCredentials.some(c => c.email === DIOCESE_ADMIN.email);
+        
+        if (!adminExists) {
+          // Add admin user
+          await db.set('userAuth', [...existingUsers, DIOCESE_ADMIN]);
+        }
+        
+        if (!adminCredentialsExist) {
+          // Add admin credentials
+          await db.set('loginCredentials', [
+            ...existingCredentials,
+            {
+              userId: DIOCESE_ADMIN.id,
+              email: DIOCESE_ADMIN.email,
+              password: 'admin123'
+            }
+          ]);
+        }
+        
+        // Update local state
+        setUsers(await db.get('userAuth') || []);
+        setLoginCredentials(await db.get('loginCredentials') || []);
+        
+      } catch (error) {
+        console.error('Error initializing admin user:', error);
+      }
+    };
+
+    initializeAdminUser();
+  }, []);
+
+  const handleUserCreated = (newUser: UserAuth) => {
+    setUsers(prevUsers => [...prevUsers, newUser]);
+    setShowInviteForm(false);
+  };
 
   return (
     <div className="p-6 max-w-[1400px] mx-auto">
@@ -1091,7 +1122,13 @@ const SettingsPage = () => {
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
               <div className="bg-white p-6 rounded-lg max-w-md w-full">
                 <h2 className="text-2xl font-bold mb-4">Add New User</h2>
-                <UserCreateForm onSuccess={() => setShowInviteForm(false)} />
+                <UserCreateForm 
+                  onSuccess={(newUser, newClergy) => {
+                    setUsers(prev => [...prev, newUser]);
+                    setClergyData(prev => [...prev, newClergy]);
+                    setShowInviteForm(false);
+                  }} 
+                />
                 <button
                   onClick={() => setShowInviteForm(false)}
                   className="mt-4 text-gray-500 hover:underline"
