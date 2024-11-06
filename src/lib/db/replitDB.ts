@@ -13,11 +13,9 @@ export class ReplitDB implements BaseDB {
   private async initializeClient() {
     if (!this.client) {
       try {
-        // Only import in server-side context
-        if (typeof window === 'undefined') {
-          const { Client } = await import('@replit/database');
-          this.client = new Client();
-        }
+        const Database = require('@replit/database');
+        this.client = new Database(process.env.REPLIT_DB_URL);
+        console.log('ReplitDB client initialized');
       } catch (error) {
         console.error('Failed to initialize Replit DB client:', error);
       }
