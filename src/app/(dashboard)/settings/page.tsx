@@ -669,42 +669,46 @@ const SettingsPage = () => {
   useEffect(() => {
     const initializeAdminUser = async () => {
       try {
-        // Get current users and credentials
-        const existingUsers = await db.get('userAuth') || [];
-        const existingCredentials = await db.get('loginCredentials') || [];
+        // Get current data
+        const existingUsers = await db.get('userAuth') || []
+        const existingCredentials = await db.get('loginCredentials') || []
+        const existingDeaneries = await db.get('deaneries') || []
+        const existingClergy = await db.get('clergy') || []
         
         // Check if admin exists
-        const adminExists = existingUsers.some(u => u.email === DIOCESE_ADMIN.email);
-        const adminCredentialsExist = existingCredentials.some(c => c.email === DIOCESE_ADMIN.email);
+        const adminExists = existingUsers.some(u => 
+          u.email === DIOCESE_ADMIN.email || u.email === SYSTEM_ADMIN.email
+        )
         
         if (!adminExists) {
-          // Add admin user
-          await db.set('userAuth', [...existingUsers, DIOCESE_ADMIN]);
+          // Add both admins
+          await db.set('userAuth', [...existingUsers, SYSTEM_ADMIN, DIOCESE_ADMIN])
+          console.log('Added admin users')
         }
         
-        if (!adminCredentialsExist) {
-          // Add admin credentials
-          await db.set('loginCredentials', [
-            ...existingCredentials,
-            {
-              userId: DIOCESE_ADMIN.id,
-              email: DIOCESE_ADMIN.email,
-              password: 'admin123'
-            }
-          ]);
+        // Check if admin credentials exist
+        const adminCredsExist = existingCredentials.some(c => 
+          c.email === DIOCESE_ADMIN.email || c.email === SYSTEM_ADMIN.email
+        )
+        
+        if (!adminCredsExist) {
+          await db.set('loginCredentials', [...existingCredentials, ...DEFAULT_ADMIN_CREDENTIALS])
+          console.log('Added admin credentials')
         }
         
         // Update local state
-        setUsers(await db.get('userAuth') || []);
-        setLoginCredentials(await db.get('loginCredentials') || []);
+        setUsers(await db.get('userAuth') || [])
+        setLoginCredentials(await db.get('loginCredentials') || [])
+        setDeaneries(existingDeaneries)
+        setClergyData(existingClergy)
         
       } catch (error) {
-        console.error('Error initializing admin user:', error);
+        console.error('Error initializing admin user:', error)
       }
-    };
+    }
 
-    initializeAdminUser();
-  }, []);
+    initializeAdminUser()
+  }, [])
 
   const handleUserCreated = (newUser: UserAuth) => {
     setUsers(prevUsers => [...prevUsers, newUser]);

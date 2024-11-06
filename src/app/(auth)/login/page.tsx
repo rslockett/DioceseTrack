@@ -62,8 +62,10 @@ const Page: React.FC<PageProps> = () => {
       try {
         console.log('Initializing admin accounts...')
         const users = await db.get('userAuth') || []
+        const credentials = await db.get('loginCredentials') || []
         let updated = false
 
+        // Initialize users if needed
         if (users.length === 0) {
           users.push(SYSTEM_ADMIN)
           users.push(DIOCESE_ADMIN)
@@ -71,21 +73,32 @@ const Page: React.FC<PageProps> = () => {
           console.log('Added admin accounts')
         }
 
-        if (updated) {
-          const success = await db.set('userAuth', users)
-          if (!success) {
-            setError('Error initializing system. Please try again.')
-          }
+        // Initialize credentials if needed
+        if (credentials.length === 0) {
+          const defaultCredentials = [
+            {
+              userId: SYSTEM_ADMIN.id,
+              email: SYSTEM_ADMIN.email,
+              password: 'admin1234'
+            },
+            {
+              userId: DIOCESE_ADMIN.id,
+              email: DIOCESE_ADMIN.email,
+              password: 'admin123'
+            }
+          ]
+          await db.set('loginCredentials', defaultCredentials)
+          console.log('Added admin credentials')
         }
 
-        if (window.location.pathname !== '/login') {
-          const currentUser = await db.get('currentUser')
-          if (currentUser) {
-            const userData = currentUser
-            const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard'
-            window.location.href = targetPath
-          }
+        if (updated) {
+          await db.set('userAuth', users)
         }
+
+        // Debug logs
+        console.log('Current users:', await db.get('userAuth'))
+        console.log('Current credentials:', await db.get('loginCredentials'))
+
       } catch (err) {
         console.error('Initialization error:', err)
         setError('Error initializing system. Please refresh the page.')
