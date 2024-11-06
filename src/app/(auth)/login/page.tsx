@@ -134,7 +134,10 @@ const Page: React.FC<PageProps> = () => {
       sessionStorage.setItem('user', JSON.stringify(userData))
       
       console.log('User data stored, about to navigate')
-      router.push('/dashboard')
+      
+      // Force a full page navigation instead of client-side routing
+      window.location.href = '/dashboard'
+      
       console.log('Navigation command issued')
     } catch (error) {
       console.error('Error in handleSuccessfulLogin:', error)

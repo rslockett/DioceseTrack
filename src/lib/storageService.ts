@@ -2,7 +2,8 @@ class StorageService {
   private isReplit: boolean
 
   constructor() {
-    this.isReplit = typeof window === 'undefined' || !!process.env.REPL_ID
+    this.isReplit = typeof window !== 'undefined' && 
+      window.location.hostname.includes('replit.dev');
   }
 
   async getItem(key: string): Promise<string | null> {
