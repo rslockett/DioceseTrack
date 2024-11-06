@@ -10,6 +10,11 @@ export function middleware(request: NextRequest) {
 
   // Check for user session
   const userCookie = request.cookies.get('currentUser')
+  console.log('Checking auth:', {
+    path: request.nextUrl.pathname,
+    hasCookie: !!userCookie?.value,
+    cookieValue: userCookie?.value
+  });
   if (!userCookie?.value) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
