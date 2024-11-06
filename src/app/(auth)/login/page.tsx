@@ -171,17 +171,16 @@ const Page: React.FC<PageProps> = () => {
       await db.set('currentUser', userData);
       localStorage.setItem('currentUser', JSON.stringify(userData));
       
-      // Verify storage
-      console.log('LocalStorage after setting:', localStorage.getItem('currentUser'));
+      // Set auth header
+      const headers = new Headers();
+      headers.append('x-user-auth', JSON.stringify(userData));
       
       // Determine target path
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
       console.log('Navigating to:', targetPath);
       
-      // Navigate after small delay
-      setTimeout(() => {
-        window.location.href = targetPath;
-      }, 100);
+      // Navigate with auth header
+      window.location.href = targetPath;
       
     } catch (err) {
       console.error('Login process error:', err);

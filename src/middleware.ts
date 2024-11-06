@@ -8,18 +8,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check for user session
-  const userAuth = request.cookies.get('currentUser')?.value || 
-                  request.headers.get('x-user-auth') || 
-                  null;
-
-  console.log('Checking auth:', {
-    path: request.nextUrl.pathname,
-    hasAuth: !!userAuth,
-    headers: Object.fromEntries(request.headers.entries())
-  });
+  // Check for auth in headers
+  const userAuth = request.headers.get('x-user-auth');
+  
+  // If no auth header, check localStorage on client side
   if (!userAuth) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.headers.set('x-middleware-rewrite', 'true');
+    return response;
   }
 
   return NextResponse.next()
@@ -27,14 +23,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - login (login page)
-     */
     '/((?!api|_next/static|_next/image|favicon.ico|login).*)',
   ],
 } 
