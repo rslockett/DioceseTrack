@@ -171,16 +171,12 @@ const Page: React.FC<PageProps> = () => {
       await db.set('currentUser', userData);
       localStorage.setItem('currentUser', JSON.stringify(userData));
       
-      // Set auth header for future requests
-      const headers = new Headers();
-      headers.append('x-user-auth', JSON.stringify(userData));
-      
       // Determine target path
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
       console.log('Navigating to:', targetPath);
       
-      // Use Next.js router for client-side navigation
-      router.push(targetPath);
+      // Force a hard navigation
+      window.location.replace(targetPath);
       
     } catch (err) {
       console.error('Login process error:', err);
