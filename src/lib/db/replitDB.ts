@@ -4,9 +4,8 @@ export class ReplitDB implements BaseDB {
   private client: any = null;
 
   constructor() {
-    // Only initialize if we're in a Replit environment
-    if (typeof window === 'undefined' && process.env.REPLIT_DB_URL) {
-      // We'll initialize later when needed
+    // Initialize if we're in Replit environment or have the DB URL
+    if (process.env.REPLIT_DB_URL) {
       this.initializeClient();
     }
   }
@@ -14,8 +13,8 @@ export class ReplitDB implements BaseDB {
   private async initializeClient() {
     if (!this.client && process.env.REPLIT_DB_URL) {
       try {
-        const { Client } = await import('@replit/database');
-        this.client = new Client();
+        const Database = require('@replit/database');
+        this.client = new Database();
       } catch (error) {
         console.error('Failed to initialize Replit DB client:', error);
       }
@@ -23,6 +22,7 @@ export class ReplitDB implements BaseDB {
   }
 
   async get(key: string) {
+    await this.initializeClient();
     if (!this.client) return null;
     try {
       return await this.client.get(key);
@@ -33,6 +33,7 @@ export class ReplitDB implements BaseDB {
   }
 
   async set(key: string, value: any) {
+    await this.initializeClient();
     if (!this.client) return false;
     try {
       await this.client.set(key, value);
@@ -44,6 +45,7 @@ export class ReplitDB implements BaseDB {
   }
 
   async delete(key: string) {
+    await this.initializeClient();
     if (!this.client) return false;
     try {
       await this.client.delete(key);
