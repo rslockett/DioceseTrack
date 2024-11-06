@@ -5,6 +5,7 @@ import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import UserCreateForm from '@/components/UserCreateForm'
+import { db } from '@/lib/db'
 
 interface PageProps {}
 
@@ -114,7 +115,9 @@ const Page: React.FC<PageProps> = () => {
         return
       }
 
-      const loginCredentials = JSON.parse(safeStorage.getItem('loginCredentials') || '[]')
+      const loginCredentials = await db.get('loginCredentials') || [];
+      console.log('Retrieved credentials:', loginCredentials);
+      
       const userCredential = loginCredentials.find(cred => 
         cred.email === email && cred.password === password
       )
@@ -124,7 +127,9 @@ const Page: React.FC<PageProps> = () => {
         return
       }
 
-      const users = JSON.parse(safeStorage.getItem('userAuth') || '[]')
+      const users = await db.get('userAuth') || [];
+      console.log('Retrieved users:', users);
+      
       const userData = users.find(user => user.id === userCredential.userId)
 
       if (!userData) {

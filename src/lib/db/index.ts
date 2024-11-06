@@ -1,9 +1,15 @@
 import { BaseDB } from './types';
 import { LocalStorage } from './localStorage';
+import { ReplitDB } from './replitDB';
 
 // Simple factory function to get the appropriate database implementation
 export function getDatabase(): BaseDB {
-  // Always use localStorage for now, we'll add Replit DB support when deployed
+  // Check if we're in Replit environment
+  const isReplit = typeof window !== 'undefined' && window.location.hostname.includes('replit');
+  
+  if (isReplit) {
+    return new ReplitDB();
+  }
   return new LocalStorage();
 }
 
