@@ -4,17 +4,20 @@ export class ReplitDB implements BaseDB {
   private client: any = null;
 
   constructor() {
-    // Initialize if we're in Replit environment or have the DB URL
-    if (process.env.REPLIT_DB_URL) {
+    // Only initialize in server-side code
+    if (typeof window === 'undefined') {
       this.initializeClient();
     }
   }
 
   private async initializeClient() {
-    if (!this.client && process.env.REPLIT_DB_URL) {
+    if (!this.client) {
       try {
-        const Database = require('@replit/database');
-        this.client = new Database();
+        // Only import in server-side context
+        if (typeof window === 'undefined') {
+          const { Client } = await import('@replit/database');
+          this.client = new Client();
+        }
       } catch (error) {
         console.error('Failed to initialize Replit DB client:', error);
       }
@@ -22,8 +25,15 @@ export class ReplitDB implements BaseDB {
   }
 
   async get(key: string) {
+    if (typeof window !== 'undefined') {
+      // In browser, fall back to localStorage
+      const value = localStorage.getItem(key);
+      return value ? JSON.parse(value) : null;
+    }
+
     await this.initializeClient();
     if (!this.client) return null;
+    
     try {
       return await this.client.get(key);
     } catch (error) {
@@ -33,8 +43,20 @@ export class ReplitDB implements BaseDB {
   }
 
   async set(key: string, value: any) {
+    if (typeof window !== 'undefined') {
+      // In browser, fall back to localStorage
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+      } catch (error) {
+        console.error('localStorage set error:', error);
+        return false;
+      }
+    }
+
     await this.initializeClient();
     if (!this.client) return false;
+    
     try {
       await this.client.set(key, value);
       return true;
@@ -45,8 +67,20 @@ export class ReplitDB implements BaseDB {
   }
 
   async delete(key: string) {
+    if (typeof window !== 'undefined') {
+      // In browser, fall back to localStorage
+      try {
+        localStorage.removeItem(key);
+        return true;
+      } catch (error) {
+        console.error('localStorage delete error:', error);
+        return false;
+      }
+    }
+
     await this.initializeClient();
     if (!this.client) return false;
+    
     try {
       await this.client.delete(key);
       return true;
