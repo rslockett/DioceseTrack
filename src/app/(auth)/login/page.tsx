@@ -170,15 +170,21 @@ const Page: React.FC<PageProps> = () => {
       // Store user data
       await db.set('currentUser', userData);
       
-      // Set cookie
-      document.cookie = `currentUser=${encodeURIComponent(JSON.stringify(userData))}; path=/`;
+      // Set cookie with specific attributes
+      const cookieValue = encodeURIComponent(JSON.stringify(userData));
+      document.cookie = `currentUser=${cookieValue}; path=/; max-age=86400; samesite=lax`;
+      
+      // Verify cookie was set
+      console.log('Cookie after setting:', document.cookie);
       
       // Determine target path
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
       console.log('Navigating to:', targetPath);
       
-      // Use router for navigation
-      window.location.href = targetPath;
+      // Small delay to ensure cookie is set before navigation
+      setTimeout(() => {
+        window.location.href = targetPath;
+      }, 100);
       
     } catch (err) {
       console.error('Login process error:', err);
