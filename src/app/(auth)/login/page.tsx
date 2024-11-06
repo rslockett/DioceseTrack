@@ -5,6 +5,7 @@ import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import UserCreateForm from '@/components/UserCreateForm'
+import { storage } from '@/lib/storageService'
 
 interface PageProps {}
 
@@ -28,26 +29,6 @@ const DIOCESE_ADMIN = {
   dateCreated: new Date().toISOString()
 };
 
-const safeStorage = {
-  getItem: (key: string) => {
-    try {
-      return localStorage.getItem(key)
-    } catch (error) {
-      console.error('Error accessing localStorage:', error)
-      return null
-    }
-  },
-  setItem: (key: string, value: string) => {
-    try {
-      localStorage.setItem(key, value)
-      return true
-    } catch (error) {
-      console.error('Error writing to localStorage:', error)
-      return false
-    }
-  }
-}
-
 const Page: React.FC<PageProps> = () => {
   const router = useRouter()
   const [showPassword, setShowPassword] = React.useState(false)
@@ -57,37 +38,32 @@ const Page: React.FC<PageProps> = () => {
   const [showSignup, setShowSignup] = useState(false)
 
   useEffect(() => {
-    try {
-      console.log('Initializing admin accounts...')
-      const users = JSON.parse(safeStorage.getItem('userAuth') || '[]')
-      let updated = false
+    const initializeAdmins = async () => {
+      try {
+        console.log('Initializing admin accounts...')
+        const users = await storage.getJSON('userAuth') || []
+        let updated = false
 
-      if (users.length === 0) {
-        users.push(SYSTEM_ADMIN)
-        users.push(DIOCESE_ADMIN)
-        updated = true
-        console.log('Added admin accounts')
-      }
-
-      if (updated) {
-        const success = safeStorage.setItem('userAuth', JSON.stringify(users))
-        if (!success) {
-          setError('Error initializing system. Please try again.')
+        if (users.length === 0) {
+          users.push(SYSTEM_ADMIN)
+          users.push(DIOCESE_ADMIN)
+          updated = true
+          console.log('Added admin accounts')
         }
-      }
 
-      if (window.location.pathname !== '/login') {
-        const currentUser = safeStorage.getItem('currentUser')
-        if (currentUser) {
-          const userData = JSON.parse(currentUser)
-          const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard'
-          window.location.href = targetPath
+        if (updated) {
+          const success = await storage.setJSON('userAuth', users)
+          if (!success) {
+            setError('Error initializing system. Please try again.')
+          }
         }
+      } catch (error) {
+        console.error('Error initializing admin accounts:', error)
+        setError('Error initializing system. Please try again.')
       }
-    } catch (err) {
-      console.error('Initialization error:', err)
-      setError('Error initializing system. Please refresh the page.')
     }
+
+    initializeAdmins()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,7 +90,7 @@ const Page: React.FC<PageProps> = () => {
         return
       }
 
-      const loginCredentials = JSON.parse(safeStorage.getItem('loginCredentials') || '[]')
+      const loginCredentials = await storage.getJSON('loginCredentials') || []
       const userCredential = loginCredentials.find(cred => 
         cred.email === email && cred.password === password
       )
@@ -124,7 +100,7 @@ const Page: React.FC<PageProps> = () => {
         return
       }
 
-      const users = JSON.parse(safeStorage.getItem('userAuth') || '[]')
+      const users = await storage.getJSON('userAuth') || []
       const userData = users.find(user => user.id === userCredential.userId)
 
       if (!userData) {
@@ -147,7 +123,7 @@ const Page: React.FC<PageProps> = () => {
       
       // Store user data
       const userJson = JSON.stringify(userData);
-      safeStorage.setItem('currentUser', userJson);
+      storage.setItem('currentUser', userJson);
       document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
       
       // Determine target path
