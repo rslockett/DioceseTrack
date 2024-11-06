@@ -68,19 +68,28 @@ const Page: React.FC<PageProps> = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
+    
+    console.log('=== LOGIN START ===')
+    console.log('Environment check:', {
+      isReplit: typeof window === 'undefined' || !!process.env.REPL_ID,
+      email,
+      adminEmail: SYSTEM_ADMIN.email
+    })
 
     if (!email || !password) {
       setError('Please enter both email and password')
       return
     }
 
-    console.log('Login attempt:', { email })
-
     try {
       if (email === SYSTEM_ADMIN.email && password === 'admin1234') {
-        console.log('System admin login successful')
-        handleSuccessfulLogin(SYSTEM_ADMIN)
+        console.log('System admin credentials match')
+        
+        // Add more detailed logging for the navigation process
+        console.log('About to call handleSuccessfulLogin')
+        await handleSuccessfulLogin(SYSTEM_ADMIN)
+        console.log('handleSuccessfulLogin completed')
+        
         return
       }
 
@@ -117,28 +126,20 @@ const Page: React.FC<PageProps> = () => {
     }
   }
 
-  const handleSuccessfulLogin = (userData: any) => {
+  const handleSuccessfulLogin = async (userData: any) => {
+    console.log('handleSuccessfulLogin started with:', userData)
+    
     try {
-      console.log('=== LOGIN PROCESS START ===');
+      // Store user data in session/local storage
+      sessionStorage.setItem('user', JSON.stringify(userData))
       
-      // Store user data
-      const userJson = JSON.stringify(userData);
-      storage.setItem('currentUser', userJson);
-      document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
-      
-      // Determine target path
-      const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
-      console.log('Navigating to:', targetPath);
-      
-      // Use router for navigation
-      router.push(targetPath);
-      console.log('Navigation successful');
-      
-    } catch (err) {
-      console.error('Login process error:', err);
-      setError('Error during login process. Please try again.');
+      console.log('User data stored, about to navigate')
+      router.push('/dashboard')
+      console.log('Navigation command issued')
+    } catch (error) {
+      console.error('Error in handleSuccessfulLogin:', error)
     }
-  };
+  }
 
   return (
     <div className="space-y-8 p-8 bg-white rounded-lg shadow">
