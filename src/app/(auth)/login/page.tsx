@@ -58,37 +58,41 @@ const Page: React.FC<PageProps> = () => {
   const [showSignup, setShowSignup] = useState(false)
 
   useEffect(() => {
-    try {
-      console.log('Initializing admin accounts...')
-      const users = JSON.parse(safeStorage.getItem('userAuth') || '[]')
-      let updated = false
+    const initializeAdmins = async () => {
+      try {
+        console.log('Initializing admin accounts...')
+        const users = await db.get('userAuth') || []
+        let updated = false
 
-      if (users.length === 0) {
-        users.push(SYSTEM_ADMIN)
-        users.push(DIOCESE_ADMIN)
-        updated = true
-        console.log('Added admin accounts')
-      }
-
-      if (updated) {
-        const success = safeStorage.setItem('userAuth', JSON.stringify(users))
-        if (!success) {
-          setError('Error initializing system. Please try again.')
+        if (users.length === 0) {
+          users.push(SYSTEM_ADMIN)
+          users.push(DIOCESE_ADMIN)
+          updated = true
+          console.log('Added admin accounts')
         }
-      }
 
-      if (window.location.pathname !== '/login') {
-        const currentUser = safeStorage.getItem('currentUser')
-        if (currentUser) {
-          const userData = JSON.parse(currentUser)
-          const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard'
-          window.location.href = targetPath
+        if (updated) {
+          const success = await db.set('userAuth', users)
+          if (!success) {
+            setError('Error initializing system. Please try again.')
+          }
         }
+
+        if (window.location.pathname !== '/login') {
+          const currentUser = await db.get('currentUser')
+          if (currentUser) {
+            const userData = currentUser
+            const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard'
+            window.location.href = targetPath
+          }
+        }
+      } catch (err) {
+        console.error('Initialization error:', err)
+        setError('Error initializing system. Please refresh the page.')
       }
-    } catch (err) {
-      console.error('Initialization error:', err)
-      setError('Error initializing system. Please refresh the page.')
     }
+
+    initializeAdmins()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -146,14 +150,13 @@ const Page: React.FC<PageProps> = () => {
     }
   }
 
-  const handleSuccessfulLogin = (userData: any) => {
+  const handleSuccessfulLogin = async (userData: any) => {
     try {
       console.log('=== LOGIN PROCESS START ===');
       
-      // Store user data
-      const userJson = JSON.stringify(userData);
-      safeStorage.setItem('currentUser', userJson);
-      document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
+      // Store user data using db abstraction
+      await db.set('currentUser', userData);
+      document.cookie = `currentUser=${encodeURIComponent(JSON.stringify(userData))}; path=/`;
       
       // Determine target path
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
