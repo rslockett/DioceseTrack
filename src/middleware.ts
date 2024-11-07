@@ -8,9 +8,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check for user session
+  // Check for user session in cookies OR session storage
   const userCookie = request.cookies.get('currentUser')
-  if (!userCookie?.value) {
+  const userSession = typeof window !== 'undefined' ? sessionStorage.getItem('user') : null
+
+  if (!userCookie?.value && !userSession) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
@@ -19,14 +21,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - login (login page)
-     */
     '/((?!api|_next/static|_next/image|favicon.ico|login).*)',
   ],
 } 

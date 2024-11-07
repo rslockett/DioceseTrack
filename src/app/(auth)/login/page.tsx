@@ -40,22 +40,20 @@ const Page: React.FC<PageProps> = () => {
   useEffect(() => {
     const initializeAdmins = async () => {
       try {
-        console.log('Initializing admin accounts...')
+        // Check if already initialized
         const users = await storage.getJSON('userAuth') || []
-        let updated = false
-
-        if (users.length === 0) {
-          users.push(SYSTEM_ADMIN)
-          users.push(DIOCESE_ADMIN)
-          updated = true
-          console.log('Added admin accounts')
+        if (users.length > 0) {
+          console.log('Admin accounts already initialized')
+          return
         }
 
-        if (updated) {
-          const success = await storage.setJSON('userAuth', users)
-          if (!success) {
-            setError('Error initializing system. Please try again.')
-          }
+        console.log('Initializing admin accounts...')
+        users.push(SYSTEM_ADMIN)
+        users.push(DIOCESE_ADMIN)
+        
+        const success = await storage.setJSON('userAuth', users)
+        if (!success) {
+          setError('Error initializing system. Please try again.')
         }
       } catch (error) {
         console.error('Error initializing admin accounts:', error)
@@ -64,7 +62,7 @@ const Page: React.FC<PageProps> = () => {
     }
 
     initializeAdmins()
-  }, [])
+  }, []) // Empty dependency array ensures it only runs once
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
