@@ -156,7 +156,7 @@ const Page: React.FC<PageProps> = () => {
       // Store user data
       const userJson = JSON.stringify(userData);
       await storage.setItem('currentUser', userJson);
-      document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
+      document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/; SameSite=Lax; secure; max-age=86400`;
       
       // Determine target path
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
