@@ -71,7 +71,8 @@ const Page: React.FC<PageProps> = () => {
     
     console.log('=== LOGIN START ===')
     console.log('Environment check:', {
-      isReplit: typeof window === 'undefined' || !!process.env.REPL_ID,
+      isReplit: typeof window !== 'undefined' && 
+        window.location.hostname.includes('replit.dev'),
       email,
       adminEmail: SYSTEM_ADMIN.email
     })
@@ -93,9 +94,9 @@ const Page: React.FC<PageProps> = () => {
         return
       }
 
-      if (email === DIOCESE_ADMIN.email && password === 'admin123') {
+      if (email === DIOCESE_ADMIN.email && password === 'admin1234') {
         console.log('Diocese admin login successful')
-        handleSuccessfulLogin(DIOCESE_ADMIN)
+        await handleSuccessfulLogin(DIOCESE_ADMIN)
         return
       }
 
@@ -132,15 +133,21 @@ const Page: React.FC<PageProps> = () => {
     try {
       // Store user data in session storage
       sessionStorage.setItem('user', JSON.stringify(userData))
+      console.log('User data stored in session')
       
-      console.log('User data stored, about to navigate')
+      // Store in Replit DB if we're in Replit
+      if (typeof window !== 'undefined' && 
+          window.location.hostname.includes('replit.dev')) {
+        console.log('Storing in Replit DB')
+        await storage.setJSON('userAuth', [userData])
+      }
       
-      // Force a full page navigation
+      console.log('About to navigate')
       window.location.href = '/dashboard'
-      
       console.log('Navigation command issued')
     } catch (error) {
       console.error('Error in handleSuccessfulLogin:', error)
+      throw error
     }
   }
 
@@ -204,6 +211,7 @@ const Page: React.FC<PageProps> = () => {
                 )}
               </button>
             </div>
+
           </div>
 
           <div>
@@ -242,5 +250,5 @@ const Page: React.FC<PageProps> = () => {
     </div>
   )
 }
-
 export default Page
+
