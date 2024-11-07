@@ -30,11 +30,12 @@ const DIOCESE_ADMIN = {
 };
 
 const storage = {
-  getItem: (key: string) => {
+  getItem: async (key: string) => {
     try {
       if (typeof window !== 'undefined' && 
           window.location.hostname.includes('replit.dev')) {
-        return replitStorage.getJSON(key)
+        const result = await replitStorage.getJSON(key)
+        return result ? JSON.stringify(result) : null
       }
       return localStorage.getItem(key)
     } catch (error) {
@@ -42,11 +43,11 @@ const storage = {
       return null
     }
   },
-  setItem: (key: string, value: string) => {
+  setItem: async (key: string, value: string) => {
     try {
       if (typeof window !== 'undefined' && 
           window.location.hostname.includes('replit.dev')) {
-        return replitStorage.setJSON(key, JSON.parse(value))
+        return await replitStorage.setJSON(key, JSON.parse(value))
       }
       localStorage.setItem(key, value)
       return true
@@ -66,37 +67,33 @@ const Page: React.FC<PageProps> = () => {
   const [showSignup, setShowSignup] = useState(false)
 
   useEffect(() => {
-    try {
-      console.log('Initializing admin accounts...')
-      const users = JSON.parse(storage.getItem('userAuth') || '[]')
-      let updated = false
+    const initializeStorage = async () => {
+      try {
+        console.log('Initializing admin accounts...')
+        const usersStr = await storage.getItem('userAuth')
+        const users = JSON.parse(usersStr || '[]')
+        let updated = false
 
-      if (users.length === 0) {
-        users.push(SYSTEM_ADMIN)
-        users.push(DIOCESE_ADMIN)
-        updated = true
-        console.log('Added admin accounts')
-      }
-
-      if (updated) {
-        const success = storage.setItem('userAuth', JSON.stringify(users))
-        if (!success) {
-          setError('Error initializing system. Please try again.')
+        if (users.length === 0) {
+          users.push(SYSTEM_ADMIN)
+          users.push(DIOCESE_ADMIN)
+          updated = true
+          console.log('Added admin accounts')
         }
-      }
 
-      if (window.location.pathname !== '/login') {
-        const currentUser = storage.getItem('currentUser')
-        if (currentUser) {
-          const userData = JSON.parse(currentUser)
-          const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard'
-          window.location.href = targetPath
+        if (updated) {
+          const success = await storage.setItem('userAuth', JSON.stringify(users))
+          if (!success) {
+            setError('Error initializing system. Please try again.')
+          }
         }
+      } catch (err) {
+        console.error('Initialization error:', err)
+        setError('Error initializing system. Please refresh the page.')
       }
-    } catch (err) {
-      console.error('Initialization error:', err)
-      setError('Error initializing system. Please refresh the page.')
     }
+
+    initializeStorage()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
