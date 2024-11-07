@@ -69,23 +69,27 @@ const Page: React.FC<PageProps> = () => {
   useEffect(() => {
     const initializeStorage = async () => {
       try {
+        console.log('Checking existing storage...')
+        const currentUserStr = await storage.getItem('currentUser')
+        if (currentUserStr) {
+          console.log('Found existing user session')
+          const userData = JSON.parse(currentUserStr)
+          const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard'
+          window.location.href = targetPath
+          return
+        }
+
         console.log('Initializing admin accounts...')
         const usersStr = await storage.getItem('userAuth')
         const users = JSON.parse(usersStr || '[]')
-        let updated = false
-
+        
         if (users.length === 0) {
-          users.push(SYSTEM_ADMIN)
-          users.push(DIOCESE_ADMIN)
-          updated = true
-          console.log('Added admin accounts')
-        }
-
-        if (updated) {
-          const success = await storage.setItem('userAuth', JSON.stringify(users))
+          const success = await storage.setItem('userAuth', 
+            JSON.stringify([SYSTEM_ADMIN, DIOCESE_ADMIN]))
           if (!success) {
-            setError('Error initializing system. Please try again.')
+            throw new Error('Failed to initialize admin accounts')
           }
+          console.log('Added admin accounts')
         }
       } catch (err) {
         console.error('Initialization error:', err)
