@@ -120,7 +120,8 @@ const Page: React.FC<PageProps> = () => {
         return
       }
 
-      const loginCredentials = JSON.parse(storage.getItem('loginCredentials') || '[]')
+      const loginCredentialsStr = await storage.getItem('loginCredentials')
+      const loginCredentials = JSON.parse(loginCredentialsStr || '[]')
       const userCredential = loginCredentials.find(cred => 
         cred.email === email && cred.password === password
       )
@@ -130,7 +131,8 @@ const Page: React.FC<PageProps> = () => {
         return
       }
 
-      const users = JSON.parse(storage.getItem('userAuth') || '[]')
+      const usersStr = await storage.getItem('userAuth')
+      const users = JSON.parse(usersStr || '[]')
       const userData = users.find(user => user.id === userCredential.userId)
 
       if (!userData) {
