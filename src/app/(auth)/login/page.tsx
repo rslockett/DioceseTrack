@@ -40,20 +40,22 @@ const Page: React.FC<PageProps> = () => {
   useEffect(() => {
     const initializeAdmins = async () => {
       try {
-        // Check if already initialized
+        console.log('Initializing admin accounts...')
         const users = await storage.getJSON('userAuth') || []
-        if (users.length > 0) {
-          console.log('Admin accounts already initialized')
-          return
+        let updated = false
+
+        if (users.length === 0) {
+          users.push(SYSTEM_ADMIN)
+          users.push(DIOCESE_ADMIN)
+          updated = true
+          console.log('Added admin accounts')
         }
 
-        console.log('Initializing admin accounts...')
-        users.push(SYSTEM_ADMIN)
-        users.push(DIOCESE_ADMIN)
-        
-        const success = await storage.setJSON('userAuth', users)
-        if (!success) {
-          setError('Error initializing system. Please try again.')
+        if (updated) {
+          const success = await storage.setJSON('userAuth', users)
+          if (!success) {
+            setError('Error initializing system. Please try again.')
+          }
         }
       } catch (error) {
         console.error('Error initializing admin accounts:', error)
@@ -62,15 +64,14 @@ const Page: React.FC<PageProps> = () => {
     }
 
     initializeAdmins()
-  }, []) // Empty dependency array ensures it only runs once
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     console.log('=== LOGIN START ===')
     console.log('Environment check:', {
-      isReplit: typeof window !== 'undefined' && 
-        window.location.hostname.includes('replit.dev'),
+      isReplit: typeof window === 'undefined' || !!process.env.REPL_ID,
       email,
       adminEmail: SYSTEM_ADMIN.email
     })
@@ -92,9 +93,9 @@ const Page: React.FC<PageProps> = () => {
         return
       }
 
-      if (email === DIOCESE_ADMIN.email && password === 'admin1234') {
+      if (email === DIOCESE_ADMIN.email && password === 'admin123') {
         console.log('Diocese admin login successful')
-        await handleSuccessfulLogin(DIOCESE_ADMIN)
+        handleSuccessfulLogin(DIOCESE_ADMIN)
         return
       }
 
@@ -131,29 +132,15 @@ const Page: React.FC<PageProps> = () => {
     try {
       // Store user data in session storage
       sessionStorage.setItem('user', JSON.stringify(userData))
-      console.log('User data stored in session')
       
-      // Store in Replit DB if we're in Replit
-      if (typeof window !== 'undefined' && 
-          window.location.hostname.includes('replit.dev')) {
-        console.log('Storing in Replit DB')
-        await storage.setJSON('userAuth', [userData])
-      }
+      console.log('User data stored, about to navigate')
       
-      console.log('Navigation environment:', {
-        hostname: window.location.hostname,
-        pathname: window.location.pathname,
-        href: window.location.href,
-        protocol: window.location.protocol,
-        router: !!router,
-        isReplit: window.location.hostname.includes('replit.dev')
-      })
-      console.log('About to navigate')
+      // Force a full page navigation
       window.location.href = '/dashboard'
+      
       console.log('Navigation command issued')
     } catch (error) {
       console.error('Error in handleSuccessfulLogin:', error)
-      throw error
     }
   }
 
