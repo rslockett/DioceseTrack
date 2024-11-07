@@ -1,7 +1,6 @@
-import { Database } from "@replit/database"
-
 export async function GET(request: Request) {
   console.log('GET storage route called')
+  console.log('REPLIT_DB_URL:', process.env.REPLIT_DB_URL)
   
   const { searchParams } = new URL(request.url)
   const key = searchParams.get('key')
@@ -11,14 +10,15 @@ export async function GET(request: Request) {
   }
 
   try {
-    console.log('Initializing Replit DB')
-    const db = new Database(process.env.REPLIT_DB_URL)
-    console.log('DB initialized, getting value for key:', key)
+    const dbUrl = process.env.REPLIT_DB_URL
+    if (!dbUrl) {
+      throw new Error('REPLIT_DB_URL not found')
+    }
+
+    const response = await fetch(`${dbUrl}/${key}`)
+    const value = await response.text()
     
-    const value = await db.get(key)
-    console.log('Value retrieved:', value)
-    
-    return Response.json({ value })
+    return Response.json({ value: value || null })
   } catch (error) {
     console.error('Storage error:', error)
     return new Response(`Storage error: ${error.message}`, { status: 500 })
