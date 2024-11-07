@@ -69,16 +69,6 @@ const Page: React.FC<PageProps> = () => {
   useEffect(() => {
     const initializeStorage = async () => {
       try {
-        console.log('Checking existing storage...')
-        const currentUserStr = await storage.getItem('currentUser')
-        if (currentUserStr) {
-          console.log('Found existing user session')
-          const userData = JSON.parse(currentUserStr)
-          const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard'
-          window.location.href = targetPath
-          return
-        }
-
         console.log('Initializing admin accounts...')
         const usersStr = await storage.getItem('userAuth')
         const users = JSON.parse(usersStr || '[]')
