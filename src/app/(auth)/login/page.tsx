@@ -130,12 +130,12 @@ const Page: React.FC<PageProps> = () => {
     console.log('handleSuccessfulLogin started with:', userData)
     
     try {
-      // Store user data in session/local storage
+      // Store user data in session storage
       sessionStorage.setItem('user', JSON.stringify(userData))
       
       console.log('User data stored, about to navigate')
       
-      // Force a full page navigation instead of client-side routing
+      // Force a full page navigation
       window.location.href = '/dashboard'
       
       console.log('Navigation command issued')
