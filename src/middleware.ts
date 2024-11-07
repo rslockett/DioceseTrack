@@ -8,7 +8,7 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    const authResponse = await fetch(new URL('/api/auth/status', request.url))
+    const authResponse = await fetch('/api/auth/status')
     const { authenticated } = await authResponse.json()
     
     if (!authenticated) {
