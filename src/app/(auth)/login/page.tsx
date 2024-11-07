@@ -142,6 +142,14 @@ const Page: React.FC<PageProps> = () => {
         await storage.setJSON('userAuth', [userData])
       }
       
+      console.log('Navigation environment:', {
+        hostname: window.location.hostname,
+        pathname: window.location.pathname,
+        href: window.location.href,
+        protocol: window.location.protocol,
+        router: !!router,
+        isReplit: window.location.hostname.includes('replit.dev')
+      })
       console.log('About to navigate')
       window.location.href = '/dashboard'
       console.log('Navigation command issued')
