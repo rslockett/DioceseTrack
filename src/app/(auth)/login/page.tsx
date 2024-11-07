@@ -149,22 +149,27 @@ const Page: React.FC<PageProps> = () => {
     }
   }
 
-  const handleSuccessfulLogin = (userData: any) => {
+  const handleSuccessfulLogin = async (userData: any) => {
     try {
       console.log('=== LOGIN PROCESS START ===');
       
       // Store user data
       const userJson = JSON.stringify(userData);
-      storage.setItem('currentUser', userJson);
+      await storage.setItem('currentUser', userJson);
       document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
       
       // Determine target path
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
       console.log('Navigating to:', targetPath);
       
-      // Use router for navigation
-      router.push(targetPath);
-      console.log('Navigation successful');
+      // Use window.location for navigation in Replit
+      if (typeof window !== 'undefined' && 
+          window.location.hostname.includes('replit.dev')) {
+        window.location.href = targetPath;
+      } else {
+        router.push(targetPath);
+      }
+      console.log('Navigation command issued');
       
     } catch (err) {
       console.error('Login process error:', err);
