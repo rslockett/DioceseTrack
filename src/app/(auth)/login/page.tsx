@@ -153,22 +153,20 @@ const Page: React.FC<PageProps> = () => {
     try {
       console.log('=== LOGIN PROCESS START ===');
       
-      // Store user data
+      // Store user data in Replit storage only
       const userJson = JSON.stringify(userData);
-      await storage.setItem('currentUser', userJson);
-      document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/; SameSite=Lax; secure; max-age=86400`;
+      const success = await storage.setItem('currentUser', userJson);
+      
+      if (!success) {
+        throw new Error('Failed to store user data');
+      }
       
       // Determine target path
       const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
       console.log('Navigating to:', targetPath);
       
-      // Use window.location for navigation in Replit
-      if (typeof window !== 'undefined' && 
-          window.location.hostname.includes('replit.dev')) {
-        window.location.href = targetPath;
-      } else {
-        router.push(targetPath);
-      }
+      // Always use window.location for navigation in Replit
+      window.location.href = targetPath;
       console.log('Navigation command issued');
       
     } catch (err) {
