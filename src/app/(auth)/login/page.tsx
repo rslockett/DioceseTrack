@@ -147,7 +147,7 @@ const Page: React.FC<PageProps> = () => {
     try {
       console.log('=== LOGIN PROCESS START ===');
       
-      // Store user data in Replit storage only
+      // Store user data
       const userJson = JSON.stringify(userData);
       const success = await storage.setItem('currentUser', userJson);
       
