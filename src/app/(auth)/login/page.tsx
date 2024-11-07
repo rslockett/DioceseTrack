@@ -5,7 +5,7 @@ import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import UserCreateForm from '@/components/UserCreateForm'
-import { storage } from '@/lib/storageService'
+import { storage as replitStorage } from '@/lib/storageService'
 
 interface PageProps {}
 
@@ -29,6 +29,34 @@ const DIOCESE_ADMIN = {
   dateCreated: new Date().toISOString()
 };
 
+const storage = {
+  getItem: (key: string) => {
+    try {
+      if (typeof window !== 'undefined' && 
+          window.location.hostname.includes('replit.dev')) {
+        return replitStorage.getJSON(key)
+      }
+      return localStorage.getItem(key)
+    } catch (error) {
+      console.error('Error accessing storage:', error)
+      return null
+    }
+  },
+  setItem: (key: string, value: string) => {
+    try {
+      if (typeof window !== 'undefined' && 
+          window.location.hostname.includes('replit.dev')) {
+        return replitStorage.setJSON(key, JSON.parse(value))
+      }
+      localStorage.setItem(key, value)
+      return true
+    } catch (error) {
+      console.error('Error writing to storage:', error)
+      return false
+    }
+  }
+}
+
 const Page: React.FC<PageProps> = () => {
   const router = useRouter()
   const [showPassword, setShowPassword] = React.useState(false)
@@ -38,58 +66,54 @@ const Page: React.FC<PageProps> = () => {
   const [showSignup, setShowSignup] = useState(false)
 
   useEffect(() => {
-    const initializeAdmins = async () => {
-      try {
-        console.log('Initializing admin accounts...')
-        const users = await storage.getJSON('userAuth') || []
-        let updated = false
+    try {
+      console.log('Initializing admin accounts...')
+      const users = JSON.parse(storage.getItem('userAuth') || '[]')
+      let updated = false
 
-        if (users.length === 0) {
-          users.push(SYSTEM_ADMIN)
-          users.push(DIOCESE_ADMIN)
-          updated = true
-          console.log('Added admin accounts')
-        }
-
-        if (updated) {
-          const success = await storage.setJSON('userAuth', users)
-          if (!success) {
-            setError('Error initializing system. Please try again.')
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing admin accounts:', error)
-        setError('Error initializing system. Please try again.')
+      if (users.length === 0) {
+        users.push(SYSTEM_ADMIN)
+        users.push(DIOCESE_ADMIN)
+        updated = true
+        console.log('Added admin accounts')
       }
-    }
 
-    initializeAdmins()
+      if (updated) {
+        const success = storage.setItem('userAuth', JSON.stringify(users))
+        if (!success) {
+          setError('Error initializing system. Please try again.')
+        }
+      }
+
+      if (window.location.pathname !== '/login') {
+        const currentUser = storage.getItem('currentUser')
+        if (currentUser) {
+          const userData = JSON.parse(currentUser)
+          const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard'
+          window.location.href = targetPath
+        }
+      }
+    } catch (err) {
+      console.error('Initialization error:', err)
+      setError('Error initializing system. Please refresh the page.')
+    }
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    console.log('=== LOGIN START ===')
-    console.log('Environment check:', {
-      isReplit: typeof window === 'undefined' || !!process.env.REPL_ID,
-      email,
-      adminEmail: SYSTEM_ADMIN.email
-    })
+    setError('')
 
     if (!email || !password) {
       setError('Please enter both email and password')
       return
     }
 
+    console.log('Login attempt:', { email })
+
     try {
       if (email === SYSTEM_ADMIN.email && password === 'admin1234') {
-        console.log('System admin credentials match')
-        
-        // Add more detailed logging for the navigation process
-        console.log('About to call handleSuccessfulLogin')
-        await handleSuccessfulLogin(SYSTEM_ADMIN)
-        console.log('handleSuccessfulLogin completed')
-        
+        console.log('System admin login successful')
+        handleSuccessfulLogin(SYSTEM_ADMIN)
         return
       }
 
@@ -99,7 +123,7 @@ const Page: React.FC<PageProps> = () => {
         return
       }
 
-      const loginCredentials = await storage.getJSON('loginCredentials') || []
+      const loginCredentials = JSON.parse(storage.getItem('loginCredentials') || '[]')
       const userCredential = loginCredentials.find(cred => 
         cred.email === email && cred.password === password
       )
@@ -109,7 +133,7 @@ const Page: React.FC<PageProps> = () => {
         return
       }
 
-      const users = await storage.getJSON('userAuth') || []
+      const users = JSON.parse(storage.getItem('userAuth') || '[]')
       const userData = users.find(user => user.id === userCredential.userId)
 
       if (!userData) {
@@ -126,23 +150,28 @@ const Page: React.FC<PageProps> = () => {
     }
   }
 
-  const handleSuccessfulLogin = async (userData: any) => {
-    console.log('handleSuccessfulLogin started with:', userData)
-    
+  const handleSuccessfulLogin = (userData: any) => {
     try {
-      // Store user data in session storage
-      sessionStorage.setItem('user', JSON.stringify(userData))
+      console.log('=== LOGIN PROCESS START ===');
       
-      console.log('User data stored, about to navigate')
+      // Store user data
+      const userJson = JSON.stringify(userData);
+      storage.setItem('currentUser', userJson);
+      document.cookie = `currentUser=${encodeURIComponent(userJson)}; path=/`;
       
-      // Force a full page navigation
-      window.location.href = '/dashboard'
+      // Determine target path
+      const targetPath = userData.role === 'user' ? '/clergy' : '/dashboard';
+      console.log('Navigating to:', targetPath);
       
-      console.log('Navigation command issued')
-    } catch (error) {
-      console.error('Error in handleSuccessfulLogin:', error)
+      // Use router for navigation
+      router.push(targetPath);
+      console.log('Navigation successful');
+      
+    } catch (err) {
+      console.error('Login process error:', err);
+      setError('Error during login process. Please try again.');
     }
-  }
+  };
 
   return (
     <div className="space-y-8 p-8 bg-white rounded-lg shadow">
@@ -204,7 +233,6 @@ const Page: React.FC<PageProps> = () => {
                 )}
               </button>
             </div>
-
           </div>
 
           <div>
@@ -243,5 +271,5 @@ const Page: React.FC<PageProps> = () => {
     </div>
   )
 }
-export default Page
 
+export default Page
